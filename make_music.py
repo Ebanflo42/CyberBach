@@ -5,9 +5,6 @@ This script is for generating new music based on the LocusLab datasets and the m
 import os
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
-import torchsso.optim as soptim
 import torch.nn.functional as F
 import random
 
@@ -19,8 +16,8 @@ from copy import deepcopy
 from time import sleep
 from tqdm import tqdm
 
-from src.neural_nets.models import get_model
-from src.midi.utils import to_midi, make_music
+from utils.models import get_model
+from utils.midi import to_midi, write_song
 
 
 # create a new sacred experiment whose name is an integer
@@ -122,7 +119,7 @@ def music_synthesis(dataset,
     track = loadmat("data/" + dataset)[key][0][index]
 
     # generate a new song
-    new_track = make_music(model, track, true_steps, input_steps, free_steps, history, variance)
+    new_track = write_song(model, track, true_steps, input_steps, free_steps, history, variance)
 
     # temporary name for this song
     track_name = save_dir + song_name + '.mid'

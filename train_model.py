@@ -2,18 +2,15 @@
 This script creates an instance of a sacred experiment and defines default configurations for training a neural network or a regression model.
 """
 
-from src.neural_nets.models import get_model
-from src.neural_nets.load_data import get_loader
-from src.neural_nets.metrics import MaskedBCE, Accuracy, compute_acc, compute_loss
-
-import src.regression.logistic_regression as reg
+from utils.models import get_model
+from utils.data_loader import get_loader
+from utils.metrics import MaskedBCE, Accuracy, compute_acc, compute_loss
 
 import os
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torchsso.optim as soptim
 import torch.nn.functional as F
 import random
 
@@ -114,115 +111,6 @@ class NullContext(object):
         pass
     def __exit__(self, type, value, traceback):
         pass
-
-
-# this function simply trains regression models and logs the results
-# see regression.trainer for details
-@ex.capture
-def sklearn_experiment(dataset: str,
-                       save_dir: str,
-                       num_epochs: int,
-                       high_off_notes: int,
-                       low_off_notes: int,
-                       lag: int,
-                       window: int,
-                       _seed,
-                       _log,
-                       _run):
-    """
-    :param dataset: name of the dataset to be used
-    :save_dir: temporary directory where artifacts are being stored
-    :lag: how many time steps into the future the regression model is to predict
-    :window: how many time steps the regression model is to take into account
-    :param _seed: sacred random seed
-    :param _log: sacred object used to output to the command line
-    :param _run: sacred object used to monitor the runtime
-    """
-
-    num_notes = high_off_notes - low_off_notes
-
-    models = reg.train_models(dataset,
-                              num_epochs,
-                              low_off_notes,
-                              high_off_notes,
-                              _seed,
-                              lag=lag,
-                              window=window)
-
-    coefs = np.zeros((num_notes, num_notes*window))
-    intercepts = np.zeros(num_notes*window)
-
-    for i in range(num_notes):
-
-        model = models[i]
-
-        # if there were no notes played for this channel, a model won't be trained
-        # simply save all parameters as -1 to discourage the note from being played
-        if model == None:
-            coefs[i] = -1
-            intercepts[i] = -1
-
-        else:
-            coefs[i] = model.coef_
-            intercepts[i] = model.intercept_
-
-    np.save(save_dir + 'coefs.npy', coefs)
-    np.save(save_dir + 'intercepts.npy', intercepts)
-
-    _run.add_artifact(save_dir + 'coefs.npy')
-    _run.add_artifact(save_dir + 'intercepts.npy')
-
-    train_loss = reg.compute_loss(models,
-                                  dataset,
-                                  'traindata',
-                                  low_off_notes,
-                                  high_off_notes,
-                                  lag=lag,
-                                  window=window)
-    test_loss = reg.compute_loss(models,
-                                 dataset,
-                                 'testdata',
-                                 low_off_notes,
-                                 high_off_notes,
-                                 lag=lag,
-                                 window=window)
-    valid_loss = reg.compute_loss(models,
-                                  dataset,
-                                  'validdata',
-                                  low_off_notes,
-                                  high_off_notes,
-                                  lag=lag,
-                                  window=window)
-
-    _run.log_scalar('trainLoss', train_loss)
-    _run.log_scalar('testLoss', test_loss)
-    _run.log_scalar('validLoss', valid_loss)
-
-    train_acc = reg.compute_accuracy(models,
-                                     dataset,
-                                     'traindata',
-                                     low_off_notes,
-                                     high_off_notes,
-                                     lag=lag,
-                                     window=window)
-    test_acc = reg.compute_accuracy(models,
-                                    dataset,
-                                    'testdata',
-                                    low_off_notes,
-                                    high_off_notes,
-                                    lag=lag,
-                                    window=window)
-    valid_acc = reg.compute_accuracy(models,
-                                     dataset,
-                                     'validdata',
-                                     low_off_notes,
-                                     high_off_notes,
-                                     lag=lag,
-                                     window=window)
-
-    _run.log_scalar('trainAccuracy', train_acc)
-    _run.log_scalar('testAccuracy', test_acc)
-    _run.log_scalar('validAccuracy', valid_acc)
 
 
 # a single optimization step
@@ -460,126 +348,107 @@ def train_loop(cuda,
     # give all random number generators the same seed
     _seed_all(_seed)
 
-    sklearn_program = architecture == 'REGRESSION'
+    model_dict = {'architecture': architecture,
+                  'readout': readout,
+                  'gradient_clipping': gradient_clipping,
+                  'jit': jit,
+                  'lag': lag,
+                  'window': window,
+                  'input_size': input_size,
+                  'hidden_size': hidden_size,
+                  'num_layers': num_layers,
+                  'output_size': output_size
+                 }
 
-    # regression models and neural networks are trained very differently
-    if sklearn_program:
+    initializer = {'init': init,
+                   'scale': scale,
+                   'parity': parity,
+                   't_distrib': t_distrib,
+                   'path': path,
+                   'low_off_notes': low_off_notes,
+                   'high_off_notes': high_off_notes
+                  }
 
-        sklearn_experiment(dataset,
-                           save_dir,
-                           num_epochs,
-                           high_off_notes,
-                           low_off_notes,
-                           lag,
-                           window,
-                           _seed,
-                           _log,
-                           _run)
+    # if we are debugging we may want to detect autograd anomalies
+    torch.autograd.set_detect_anomaly(detect_anomaly)
 
-    # run a pytorch program
+    # construct the pytorch data loaders
+    train_loader, test_loader, valid_loader = get_loader(dataset, batch_size)
+
+    # standard training loop
+    if not do_hpsearch:
+
+        # the training loop function returns the metrics achieved at the end of training
+        # they will be logged by default, no need to do anything with them here
+        metrics = pytorch_train_loop(cuda,
+                                     model_dict,
+                                     initializer,
+                                     train_loader,
+                                     test_loader,
+                                     valid_loader,
+                                     low_off_notes,
+                                     high_off_notes,
+                                     optmzr,
+                                     lr,
+                                     decay,
+                                     regularization,
+                                     num_epochs,
+                                     save_dir,
+                                     save_init_model,
+                                     save_every_epoch,
+                                     save_final_model,
+                                     _seed,
+                                     _log,
+                                     _run)
+
+    # only goal here is to find the best hyper parameters
     else:
 
-        model_dict = {'architecture': architecture,
-                      'readout': readout,
-                      'gradient_clipping': gradient_clipping,
-                      'jit': jit,
-                      'lag': lag,
-                      'window': window,
-                      'input_size': input_size,
-                      'hidden_size': hidden_size,
-                      'num_layers': num_layers,
-                      'output_size': output_size
-                     }
+        min_test_loss = float('inf')
+        best_lr = 0
+        best_dcay = 0
+        best_reg = 0
 
-        initializer = {'init': init,
-                       'scale': scale,
-                       'parity': parity,
-                       't_distrib': t_distrib,
-                       'path': path,
-                       'low_off_notes': low_off_notes,
-                       'high_off_notes': high_off_notes
-                      }
+        hyperparams = product(learning_rates, decays, regularizations)
 
-        # if we are debugging we may want to detect autograd anomalies
-        torch.autograd.set_detect_anomaly(detect_anomaly)
+        for rate, dcay, reg in hyperparams:
 
-        # construct the pytorch data loaders
-        train_loader, test_loader, valid_loader = get_loader(dataset, batch_size)
-
-        # standard training loop
-        if not do_hpsearch:
-
-            # the training loop function returns the metrics achieved at the end of training
-            # they will be logged by default, no need to do anything with them here
+            # train a model with the given hyperparameters
+            # don't log anything, otherwise we will have a ridiculous amount of extraneous info
             metrics = pytorch_train_loop(cuda,
                                          model_dict,
                                          initializer,
                                          train_loader,
                                          test_loader,
                                          valid_loader,
-                                         low_off_notes,
-                                         high_off_notes,
                                          optmzr,
-                                         lr,
-                                         decay,
-                                         regularization,
-                                         num_epochs,
+                                         rate,
+                                         dcay,
+                                         reg,
+                                         hps_epochs,
                                          save_dir,
                                          save_init_model,
                                          save_every_epoch,
                                          save_final_model,
                                          _seed,
                                          _log,
-                                         _run)
-
-        # only goal here is to find the best hyper parameters
-        else:
-
-            min_test_loss = float('inf')
-            best_lr = 0
-            best_dcay = 0
-            best_reg = 0
-
-            hyperparams = product(learning_rates, decays, regularizations)
-
-            for rate, dcay, reg in hyperparams:
-
-                # train a model with the given hyperparameters
-                # don't log anything, otherwise we will have a ridiculous amount of extraneous info
-                metrics = pytorch_train_loop(cuda,
-                                             model_dict,
-                                             initializer,
-                                             train_loader,
-                                             test_loader,
-                                             valid_loader,
-                                             optmzr,
-                                             rate,
-                                             dcay,
-                                             reg,
-                                             hps_epochs,
-                                             save_dir,
-                                             save_init_model,
-                                             save_every_epoch,
-                                             save_final_model,
-                                             _seed,
-                                             _log,
-                                             _run,
+                                         _run,
                                              logging=False)
 
-                # loss is first index, test set is second index
-                test_loss = metrics[0][1]
+            # loss is first index, test set is second index
+            test_loss = metrics[0][1]
 
-                # compare loss against other hyperparams and update if necessary
-                if test_loss == test_loss and test_loss < min_test_loss:
-                    min_test_loss = test_loss
-                    best_lr = rate
-                    best_dcay = dcay
-                    best_reg = reg
+            # compare loss against other hyperparams and update if necessary
+            if test_loss == test_loss and test_loss < min_test_loss:
+                min_test_loss = test_loss
+                best_lr = rate
+                best_dcay = dcay
+                best_reg = reg
 
-            # record the best hyperparameters
-            _run.log_scalar("learning_rate", best_lr)
-            _run.log_scalar("decay", best_dcay)
-            _run.log_scalar("regularization", best_reg)
+        # record the best hyperparameters
+        _run.log_scalar("learning_rate", best_lr)
+        _run.log_scalar("decay", best_dcay)
+        _run.log_scalar("regularization", best_reg)
 
     # wait a second then remove the temporary directory used for storing artifacts
     sleep(1)

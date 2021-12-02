@@ -5,7 +5,6 @@ This module provides a function which returns a pytorch DataLoader for a desired
 import numpy as np
 
 import torch
-import torch.tensor
 import torch.nn.functional as F
 
 from torch.utils.data import TensorDataset, Dataset, DataLoader

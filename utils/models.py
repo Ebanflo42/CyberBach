@@ -14,9 +14,6 @@ from torch.distributions.distribution import Distribution
 
 from math import sin, cos
 
-from src.neural_nets.base_models import LDS, REGRESSION, REGRESSION_WIDE
-from src.neural_nets.initialization import _initialize
-
 
 def get_constructor(architecture: str):
     """
@@ -24,18 +21,12 @@ def get_constructor(architecture: str):
     :param cuda: whether or not the model needs to be run on the gpu
     """
 
-    if architecture == 'LDS':
-        return LDS
-
     if architecture == 'GRU':
         return nn.GRU
-
-    if architecture == 'LSTM':
+    elif architecture == 'LSTM':
         return nn.LSTM
-
-    if architecture == 'TANH':
+    elif architecture == 'TANH':
         return nn.RNN
-
     else:
         raise ValueError("Architecture {} not recognized.".format(architecture))
 
@@ -54,7 +45,6 @@ class LinReadOutModel(nn.Module):
 
         # get constructor for input and hidden layers
         architecture = model_dict['architecture']
-        self.rnn = None
         constructor = get_constructor(model_dict['architecture'])
 
         # construct the model based on whether it is implemented in pytorch or base_models.py
@@ -97,13 +87,6 @@ def get_model(model_dict: dict, initializer: dict, cuda: bool):
         model = LinReadOutModel(model_dict)
     else:
         raise ValueError("readout {} not recognized.".format(readout))
-
-    # initialize the model if necessary
-    if initializer['init'] != 'default':
-
-        # because of the way the parameters are structured,
-        # initialization must take into account the architecture of the model
-        _initialize(model, initializer, architecture=architecture)
 
     return model
 

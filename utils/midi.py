@@ -206,7 +206,7 @@ def to_midi(min_note, piano_roll_song, filename):
     mid.save(filename)
 
 
-def make_music(model,
+def write_song(model,
                piano_roll,
                true_steps: int,
                input_steps: int,
