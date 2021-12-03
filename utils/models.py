@@ -32,11 +32,11 @@ def get_constructor(architecture: str):
 
 
 # A pytorch model together with a linear read-out
-class FullRNN(nn.Module):
+class MusicRNN(nn.Module):
 
     def __init__(self, flags, architecture: str, n_rec: int):
 
-        super(FullRNN, self).__init__()
+        super(MusicRNN, self).__init__()
 
         self.architecture = architecture
 

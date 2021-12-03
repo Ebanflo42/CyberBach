@@ -12,14 +12,13 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from utils.models import FullRNN
-from utils.data_loader import get_loader
-from utils.metrics import MaskedBCE, compute_acc, compute_loss
+from utils.models import MusicRNN
+from utils.data_loader import get_datasets
+from utils.metrics import FrameAccuracy
 
-from torch.utils.data import DataLoader
 from torch import Tensor, device
+from torch.nn import BCELoss
 from copy import deepcopy
-from time import sleep
 from tqdm import tqdm
 from itertools import product
 from os.path import join as opj
@@ -29,8 +28,10 @@ from os.path import join as opj
 class NullContext(object):
     def __init__(self):
         pass
+
     def __enter__(self):
         pass
+
     def __exit__(self, type, value, traceback):
         pass
 
@@ -55,121 +56,154 @@ def train_iter(sm: simmanager.SimManager,
     optimizer.step()
 
 
-def train_loop(flags, model):
+def train_loop(sm, flags, model, train_iter, valid_iter, test_iter):
 
     # if we are on cuda we construct the device and run everything on it
     cuda_device = NullContext()
     device = torch.device('cpu')
     if flags.use_gpu:
-        dev_name = 'cuda:' + str(gpu)
+        dev_name = 'cuda:0'
         cuda_device = torch.cuda.device(dev_name)
         device = torch.device(dev_name)
         model = model.to(device)
 
+    train_loss = []
+    train_reg = []
+    train_acc = []
+
+    valid_loss = []
+    valid_acc = []
+
     with cuda_device:
 
-        # see metrics.py
-        loss_fcn = MaskedBCE(
-            regularization, low_off_notes=low_off_notes, high_off_notes=high_off_notes)
-
-        # compute the metrics before training and log them
-        if logging:
-
-            train_loss = compute_loss(loss_fcn, model, train_loader)
-            test_loss = compute_loss(loss_fcn, model, test_loader)
-            val_loss = compute_loss(loss_fcn, model, valid_loader)
-
-            _run.log_scalar("trainLoss", train_loss)
-            _run.log_scalar("testLoss", test_loss)
-            _run.log_scalar("validLoss", val_loss)
-
-            train_acc = compute_acc(
-                model, train_loader, low=low_off_notes, high=high_off_notes)
-            test_acc = compute_acc(
-                model, test_loader, low=low_off_notes, high=high_off_notes)
-            val_acc = compute_acc(model, valid_loader,
-                                  low=low_off_notes, high=high_off_notes)
-
-            _run.log_scalar("trainAccuracy", train_acc)
-            _run.log_scalar("testAccuracy", test_acc)
-            _run.log_scalar("validAccuracy", val_acc)
-
         # construct the optimizer
-        optimizer = None
-        if optmzr == "SGD":
-            optimizer = optim.SGD(model.parameters(), lr=lr)
-        elif optmzr == "Adam":
-            optimizer = optim.Adam(model.parameters(), lr=lr)
-        elif optmzr == "RMSprop":
-            optimizer = optim.RMSprop(model.parameters(), lr=lr)
+        if flags.optimizer == "SGD":
+            optimizer = optim.SGD(model.parameters(), lr=flags.lr)
+        elif flags.optimizer == "Adam":
+            optimizer = optim.Adam(model.parameters(), lr=flags.lr)
+        elif flags.optimizer == "RMSprop":
+            optimizer = optim.RMSprop(model.parameters(), lr=flags.lr)
+        elif flags.optimizer == "Adagrad":
+            optimizer = optim.Adagrad(model.parameters(), lr=flags.lr)
         else:
-            raise ValueError("Optimizer {} not recognized.".format(optmzr))
+            raise ValueError(
+                "Optimizer {} not recognized.".format(flags.optimizer))
 
         # learning rate decay
         scheduler = None
         scheduler = optim.lr_scheduler.LambdaLR(
-            optimizer, lambda epoch: decay**epoch)
+            optimizer, lambda epoch: flags.lr_decay**(epoch//flags.decay_every))
+
+        acc_fcn = FrameAccuracy()
+        loss_fcn = BCELoss()
 
         # begin training loop
-        for epoch in tqdm(range(num_epochs)):
+        for i in range(flags.train_iters):
 
-            for input_tensor, target, mask in train_loader:
-                train_iter(device,
-                           cuda_device,
-                           input_tensor,
-                           target,
-                           mask,
-                           model,
-                           loss_fcn,
-                           optimizer,
-                           save_every_epoch,
-                           save_dir,
-                           train_loader,
-                           test_loader,
-                           valid_loader,
-                           low_off_notes,
-                           high_off_notes,
-                           _log,
-                           _run,
-                           logging=logging)
+            # get next training sample
+            x, y = next(train_iter)
+            x, y = torch.tensor(x, dtype=torch.float32, device=device), torch.tensor(
+                y, dtype=torch.float32, device=device)
+
+            # forward pass
+            output, hidden = model(x)
+
+            # binary cross entropy
+            bce_loss = loss_fcn(output, y)
+
+            # weight regularization
+            l2_reg = torch.tensor(0.)
+            for param in model.parameters():
+                l2_reg += flags.reg_coeff*torch.norm(param)
+
+            # backward pass and optimization step
+            loss = bce_loss + l2_reg
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
 
             # learning rate decay
             scheduler.step()
 
-            # use sacred to log testing and validation loss and accuracy
-            if logging:
+            # compute accuracy
+            acc = acc_fcn(output, y)
 
-                test_loss = compute_loss(loss_fcn, model, test_loader)
-                val_loss = compute_loss(loss_fcn, model, valid_loader)
-                test_acc = compute_acc(
-                    model, test_loader, low=low_off_notes, high=high_off_notes)
-                val_acc = compute_acc(
-                    model, valid_loader, low=low_off_notes, high=high_off_notes)
+            # append metrics
+            train_loss.append(bce_loss)
+            train_acc.append(acc)
+            train_reg.append(l2_reg)
 
-                _run.log_scalar("testLoss", test_loss)
-                _run.log_scalar("validLoss", val_loss)
-                _run.log_scalar("testAccuracy", test_acc)
-                _run.log_scalar("validAccuracy", val_acc)
+            if i > 0 and i % flags.validate_every == 0:
 
-        # save a copy of the trained model and make sacred remember it
-        if save_final_model and logging:
-            fin_sd = deepcopy(model.state_dict())
-            torch.save(fin_sd, save_dir + 'final_state_dict.pt')
-            _run.add_artifact(save_dir + 'final_state_dict.pt')
+                print(
+                    f'Validating at iteration {i}.\n  Training loss: {bce_loss}\n  Training accuracy: {acc}\n  L2 regularization: {l2_reg}')
 
-    # recompute the metrics so that this function can return them
-    train_loss = compute_loss(loss_fcn, model, train_loader)
-    test_loss = compute_loss(loss_fcn, model, test_loader)
-    val_loss = compute_loss(loss_fcn, model, valid_loader)
+                # get next validation sample
+                x, y = next(valid_iter)
+                x, y = torch.tensor(x, dtype=torch.float32, device=device), torch.tensor(
+                    y, dtype=torch.float32, device=device)
 
-    train_acc = compute_acc(model, train_loader,
-                            low=low_off_notes, high=high_off_notes)
-    test_acc = compute_acc(
-        model, test_loader, low=low_off_notes, high=high_off_notes)
-    val_acc = compute_acc(model, valid_loader,
-                          low=low_off_notes, high=high_off_notes)
+                # forward pass
+                output, hidden = model(x)
 
-    return ((train_loss, test_loss, val_loss), (train_acc, test_acc, val_acc))
+                # binary cross entropy
+                bce_loss = loss_fcn(output, y)
+
+                # compute accuracy
+                acc = acc_fcn(output, y)
+
+                # append metrics
+                valid_loss.append(bce_loss)
+                valid_acc.append(acc)
+
+                print(
+                    f'  Validation loss: {bce_loss}\n  Validation accuracy: {acc}')
+
+            if i > 0 and i % flags.save_every == 0:
+
+                print(f'Saving at iteration {i}.')
+
+                np.save(opj(sm.results_path, 'training_loss'), train_loss)
+                np.save(opj(sm.results_path, 'training_accuracy'), train_acc)
+                np.save(opj(sm.results_path, 'training_regularization'), train_reg)
+
+                np.save(opj(sm.results_path, 'validation_loss'), valid_loss)
+                np.save(opj(sm.results_path, 'validation_accuracy'), valid_acc)
+
+                torch.save(model.state_dict(), opj(
+                    sm.results_path, 'model_checkpoint'))
+
+        print('Finished training. Entering testing phase.')
+
+        test_loss = []
+        test_acc = []
+        tot_test_samples = 0
+
+        for x, y in test_iter:
+
+            x, y = torch.tensor(x, dtype=torch.float32, device=device), torch.tensor(
+                y, dtype=torch.float32, device=device)
+
+            output, hidden = model(x)
+
+            bce_loss = loss_fcn(output, y)
+            acc = acc_fcn(output, y)
+
+            batch_size = x.shape[0]
+            tot_test_samples += batch_size
+            test_loss.append(batch_size*bce_loss)
+            test_acc.append(batch_size*acc)
+
+        final_test_loss = np.sum(test_loss)/tot_test_samples
+        final_test_acc = np.sum(test_acc)/tot_test_samples
+        print(
+            f'  Testing loss: {final_test_loss}\n  Testing accuracy: {final_test_acc}')
+
+        print('Final save.')
+        np.save(opj(sm.results_path, 'testing_loss'), final_test_loss)
+        np.save(opj(sm.results_path, 'testing_accuracy'), final_test_acc)
+        torch.save(model.state_dict(), opj(
+            sm.results_path, 'model_checkpoint'))
 
 
 def main(_argv):
@@ -178,40 +212,58 @@ def main(_argv):
 
     # construct simulation manager
     base_path = opj(flags.results_dir, flags.exp_name)
-    identifier = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(4))
+    identifier = ''.join(random.choice(
+        string.ascii_lowercase + string.digits) for _ in range(4))
     sim_name = 'run_{}'.format(identifier)
-    sm = simmanager.SimManager(sim_name, base_path, write_protect_dirs=False, tee_sdx_to='output.log')
+    sm = simmanager.SimManager(
+        sim_name, base_path, write_protect_dirs=False, tee_sdx_to='output.log')
 
     with sm:
 
         # check for cuda
         if flags.use_gpu and not torch.cuda.is_available():
-            raise OSError('CUDA is not available. Check your installation or set `use_gpu` to False.')
+            raise OSError(
+                'CUDA is not available. Check your installation or set `use_gpu` to False.')
 
         # dump flags for this experiment
         with open(opj(sm.data_path, 'flags.json'), 'w') as f:
             json.dump(flags, f)
 
         # generate, save, and set random seed
-        random_seed = datetime.now().microsecond
+        if flags.random_seed != -1:
+            random_seed = flags.random_seed
+        else:
+            random_seed = datetime.now().microsecond
         np.save(opj(sm.data_path, 'random_seed'), random_seed)
         torch.manual_seed(random_seed)
         np.random.seed(random_seed)
         random.seed(random_seed)
 
         # check for old model to restore from
-        old_model_dict = None
-        architecture = flags.architecture
-        n_rec = flags.n_rec
         if flags.restore_from != '':
-            with open(opj(flags.restore_from, 'results', 'model_checkpoint.pkl'), 'rb') as f:
-                old_model_dict = pkl.load(f)
+
             with open(opj(flags.restore_from, 'data', 'flags.json'), 'r') as f:
                 old_flags = json.load(f.read())
-                architecture = old_flags['architecture']
-                n_rec = old_flags['n_rec']
 
-        model = FullRNN(flags, architecture, n_rec)
+            architecture = old_flags['architecture']
+            if architecture != flags.architecture:
+                print(
+                    'Warning: restored architecture does not agree with architecture specified in flags.')
+            n_rec = old_flags['n_rec']
+            if n_rec != flags.n_rec:
+                print(
+                    'Warning: restored number of recurrent units does not agree with number of recurrent units specified in flags.')
+
+            model = MusicRNN(flags, architecture, n_rec)
+            model.load_state_dict(torch.load(opj(flags.restore_from, 'results', 'model_checkpoint.pt')))
+
+        else:
+            model = MusicRNN(flags, flags.architecture, flags.n_rec)
+
+        train_iter, valid_iter, test_iter = get_datasets(flags)
+
+        train_loop(sm, flags, model, train_iter, valid_iter, test_iter)
+
 
 if __name__ == '__main__':
 
@@ -222,6 +274,8 @@ if __name__ == '__main__':
         'exp_name', '', 'If non-empty works as a special directory for the experiment')
     absl.flags.DEFINE_string('result_dir', 'trained_models',
                              'Name of the directory to save all results within.')
+    absl.flags.DEFINE_integer(
+        'random_seed', -1, 'If not negative 1, set the random seed to this value. Otherwise the random seed will be the current microsecond.')
 
     # training
     absl.flags.DEFINE_enum('dataset', 'JSB_Chorales', [
@@ -231,7 +285,7 @@ if __name__ == '__main__':
     absl.flags.DEFINE_integer('batch_size', 100, 'Batch size.')
     absl.flags.DEFINE_float('lr', 0.001, 'Learning rate.')
     absl.flags.DEFINE_integer(
-        'decay_every', 100, 'Shrink the learning rate after this many batches.')
+        'decay_every', 1000, 'Shrink the learning rate after this many training steps.')
     absl.flags.DEFINE_float(
         'lr_decay', 0.95, 'Shrink the learning rate by this factor.')
     absl.flags.DEFINE_enum('optimizer', 'Adam', [
@@ -242,8 +296,10 @@ if __name__ == '__main__':
         'use_grad_clip', False, 'Whether or not to clip the backward gradients by their magnitude.')
     absl.flags.DEFINE_float(
         'grad_clip', 1, 'Maximum magnitude of gradients if gradient clipping is used.')
-    absl.flags.DEFINE_integer('validate_every', 100, 'Validate the model at this many training steps.')
-    absl.flags.DEFINE_integer('save_every', 200, 'Save the model at this many training steps.')
+    absl.flags.DEFINE_integer(
+        'validate_every', 100, 'Validate the model at this many training steps.')
+    absl.flags.DEFINE_integer(
+        'save_every', 200, 'Save the model at this many training steps.')
 
     # model
     absl.flags.DEFINE_enum('architecture', 'TANH', [
@@ -255,6 +311,4 @@ if __name__ == '__main__':
     absl.flags.DEFINE_string(
         'restore_from', '', 'If non-empty, restore all the previous model from this directory and train it using the new flags.')
 
-
     absl.app.run(main)
-
