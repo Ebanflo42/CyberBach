@@ -19,7 +19,7 @@ class FrameAccuracy(nn.Module):
 
         N = output.shape[0]
 
-        prediction = (torch.sigmoid(output) > 0.5).type(torch.float32)[:, :, self.low : self.high]
+        prediction = (torch.sigmoid(output) > 0.5).type(torch.float32)
 
         # sum over notes
         tru_pos = torch.sum(prediction*target, dim=2)
