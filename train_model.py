@@ -13,14 +13,11 @@ import torch.nn as nn
 import torch.optim as optim
 
 from utils.models import MusicRNN
-from utils.data_loader import get_datasets
 from utils.metrics import FrameAccuracy
+from utils.data_loader import get_datasets
+from utils.initialization import initialize
 
-from torch import Tensor, device
 from torch.nn import BCELoss
-from copy import deepcopy
-from tqdm import tqdm
-from itertools import product
 from os.path import join as opj
 
 
@@ -34,26 +31,6 @@ class NullContext(object):
 
     def __exit__(self, type, value, traceback):
         pass
-
-
-# a single optimization step
-def train_iter(sm: simmanager.SimManager,
-               device: device,
-               input_tensor: Tensor,
-               target: Tensor,
-               mask: Tensor,
-               model: nn.Module,
-               loss_fcn: nn.Module,
-               optimizer: optim.Optimizer):
-
-    input_tensor = input_tensor.to(device)
-
-    output, hidden_tensors = model(input_tensor)
-
-    loss = loss_fcn(output, target, mask, model)
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
 
 
 def train_loop(sm, flags, model, train_iter, valid_iter, test_iter):
@@ -259,6 +236,7 @@ def main(_argv):
 
         else:
             model = MusicRNN(flags, flags.architecture, flags.n_rec)
+            initialize(model, flags)
 
         train_iter, valid_iter, test_iter = get_datasets(flags)
 
@@ -307,7 +285,7 @@ if __name__ == '__main__':
     absl.flags.DEFINE_integer(
         'n_rec', 1024, 'How many recurrent neurons to use.')
     absl.flags.DEFINE_enum('initialization', 'default', ['default', 'orthogonal', 'limit_cycle'],
-                           'Which initialization to use for the recurrent weight matrices. Default is uniformly distributed weights. Limit cycles only apply to TANH and GRU')
+                           'Which initialization to use for the recurrent weight matrices. Default is uniform Xavier. Limit cycles only apply to TANH and GRU')
     absl.flags.DEFINE_string(
         'restore_from', '', 'If non-empty, restore all the previous model from this directory and train it using the new flags.')
 

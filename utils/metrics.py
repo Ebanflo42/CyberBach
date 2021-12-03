@@ -7,10 +7,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from torch.utils.data import DataLoader
-
 # see Bay et al 2009 for the definition of frame-level accuracy
-# this module also returns the sum over all sequences
+# this module also returns the mean over all sequences
 class FrameAccuracy(nn.Module):
 
     def __init__(self):
@@ -48,7 +46,6 @@ class FrameAccuracy(nn.Module):
 
         # first take the average for each sequence, then sum over sequences
         result = torch.cat(acc_over_time).reshape(T, N)
-        result = torch.mean(result, dim=0)
-        result = torch.sum(result)
+        result = torch.mean(result)
 
         return result
