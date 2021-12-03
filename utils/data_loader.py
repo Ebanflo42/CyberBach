@@ -2,92 +2,75 @@
 This module provides a function which returns a pytorch DataLoader for a desired music database.
 """
 
+import random
 import numpy as np
-
-import torch
-import torch.nn.functional as F
-
-from torch.utils.data import TensorDataset, Dataset, DataLoader
-from torch.nn.utils.rnn import pad_sequence
-
+from itertools import cycle
 from scipy.io import loadmat
-
-from typing import Tuple
-
-
-class DatasetFromArrayOfArrays(Dataset):
-
-    def __init__(self, ArrayOfArrays):
-
-        # turn data into a list of arrays sorted by length
-        data = ArrayOfArrays if ArrayOfArrays.ndim == 1 else ArrayOfArrays.flatten()
-        data = [torch.from_numpy(d) for d in data]
-        data.sort(key=len)
-
-        self.data = data
-
-    def __getitem__(self, index):
-
-        ix_tensor = self.data[index].type(torch.get_default_dtype())
-
-        # all except last time step for input
-        # all except first time step for target
-        in_tensor, targ_tensor = ix_tensor[0 : -1], ix_tensor[1 : ]
-
-        return in_tensor, targ_tensor
-
-    def __len__(self):
-        return len(self.data)
+from prefetch_generator import background
 
 
-def collate_fun(init_mask: int, batch):
+# testing iterator loops through the testing set once
+def create_testing_iterator(test_set, batch_size):
 
-    # separate inputs and targets and record lengths of inputs
-    (inputs, output) = zip(*batch)
-    lengths = [len(i) for i in inputs]
+    n_samples = len(test_set)
+    indices = [i for i in range(0, n_samples, batch_size)]
 
-    # zero-pad all tensors (all songs are of different length!)
-    inputs = pad_sequence(inputs, batch_first=True, padding_value=0)
-    outputs = pad_sequence(output, batch_first=True, padding_value=0)
+    @background(max_prefetch=2)
+    def test_iter():
+        for ix in indices:
+            songs = test_set[ix : np.min(n_samples, ix + batch_size)]
+            x = songs[:, :-1]
+            y = songs[:, 1:]
+            yield x, y
 
-    # keep a mask which tells us which parts of the tensor are actual data
-    mask = torch.zeros((inputs.shape[0], inputs.shape[1]), dtype=torch.float, requires_grad=False)
-    for i, length in enumerate(lengths):
-        mask[i, init_mask : length] = torch.ones(length - init_mask)
-
-    return inputs, outputs, mask
+    return test_iter()
 
 
-def get_loader(dataset: str, batch_size: int, init_mask=0) -> Tuple:
-    """
-    :param dataset: The name of the dataset we want to use. Either JSB_Chorales, MuseData, Nottingham, or Piano_midi.
-    :param batch_size: how many sequences to train on at once.
-    :init_mask: mask the first few time steps of the data
-    :return: DataLoaders for training, testing, and validation.
-    """
+# validation iterator loops through the validation set infinitely
+def create_validation_iterator(valid_set, batch_size):
 
-    path = "data/" + dataset + ".mat"
+    n_samples = len(valid_set)
+    indices = [i for i in range(0, n_samples, batch_size)]
 
-    train_data = None
-    test_val_data = None
+    @background(max_prefetch=2)
+    def valid_iter():
+        for ix in cycle(indices):
+            songs = valid_set[ix : np.min(n_samples, ix + batch_size)]
+            x = songs[:, :-1]
+            y = songs[:, 1:]
+            yield x, y
 
-    if dataset in ["JSB_Chorales", "MuseData", "Nottingham", "Piano_midi"]:
+    return valid_iter()
 
-        # read the matlab file
-        data = loadmat(path)
 
-        # construct the data sets
-        train_data = DatasetFromArrayOfArrays(data['traindata'][0])
-        test_data = DatasetFromArrayOfArrays(data['testdata'][0])
-        val_data = DatasetFromArrayOfArrays(data['validdata'][0])
+# training iterator loops through the training set infinitely, drawing random samples
+def create_training_iterator(train_set, batch_size):
 
-        # construct the loaders
-        collate_fn = lambda batch: collate_fun(init_mask, batch)
-        train_loader = DataLoader(train_data, batch_size=batch_size, collate_fn=collate_fn)
-        test_loader = DataLoader(test_data, batch_size=batch_size, collate_fn=collate_fn)
-        val_loader = DataLoader(val_data, batch_size=batch_size, collate_fn=collate_fn)
+    n_samples = len(train_set)
 
-        return train_loader, test_loader, val_loader
+    @background(max_prefetch=8)
+    def train_iter():
+        while True:
+            indices = [i for i in range(n_samples)]
+            indices.shuffle()
+            songs = np.concatenate(train_set[i] for i in indices[:batch_size])
+            x = songs[:, :-1]
+            y = songs[:, 1:]
+            yield x, y
 
-    else:
-        raise ValueError("Dataset {} not found.".format(dataset))
+    return train_iter()
+
+
+def get_datasets(flags):
+
+    matdata = loadmat(f'locuslab_data/{flags.dataset}.mat')
+
+    train_set = matdata['traindata'][0]
+    valid_set = matdata['validdata'][0]
+    test_set = matdata['testdata'][0]
+
+    train_iter = create_training_iterator(train_set, flags.batch_size)
+    valid_iter = create_validation_iterator(valid_set, flags.batch_size)
+    test_iter = create_testing_iterator(test_set, flags.batch_size)
+
+    return train_iter, valid_iter, test_iter
