@@ -1,106 +1,28 @@
-"""
-This script creates an instance of a sacred experiment and defines default configurations for training a neural network or a regression model.
-"""
-
-from utils.models import get_model
-from utils.data_loader import get_loader
-from utils.metrics import MaskedBCE, Accuracy, compute_acc, compute_loss
-
 import os
+import json
+import string
+import random
+import datetime
+import pickle as pkl
+
+import absl
+import simmanager
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
-import random
+
+from utils.models import FullRNN
+from utils.data_loader import get_loader
+from utils.metrics import MaskedBCE, compute_acc, compute_loss
 
 from torch.utils.data import DataLoader
-from sacred import Experiment
 from torch import Tensor, device
 from copy import deepcopy
 from time import sleep
 from tqdm import tqdm
-
-from typing import List
 from itertools import product
-
-
-# create a new sacred experiment whose name is an integer
-ex = Experiment(name=str(random.randint(0, 1000000)))
-
-
-# default configurations
-@ex.config
-def cfg():
-
-    # system
-    cuda = torch.cuda.is_available()
-    gpu = 0
-    base_dir = os.getcwd()
-
-    # supported datasets
-    # JSB_Chorales (short)
-    # Nottingham (medium)
-    # Piano_midi (long)
-    # MuseData (extra long)
-    dataset = "JSB_Chorales"
-
-    # training
-    num_epochs = 150
-    batch_size = 128
-    # mask some low notes and some high notes because they never show up
-    low_off_notes = 0
-    high_off_notes = 88
-    lr = 0.001
-    decay = 1.0
-    optmzr = "SGD"
-    regularization = 0.0
-
-    # hyperparameter search
-    do_hpsearch = False
-    learning_rates = 10**np.linspace(-2, -4, 5)
-    decays = 1 - np.linspace(0, 0.1, num=5)
-    regularizations = 10**np.linspace(-2, -4, num=5)
-    hps_epochs = 50
-
-    # Supported architectures
-    # REGRESSION
-    # LDS
-    # TANH
-    architecture = 'LDS'
-    readout = 'linear'
-    gradient_clipping = 1
-    jit = False # not fully implemented
-    # for regression
-    lag = 1
-    window = 1
-    # for neural networks
-    input_size = 88
-    hidden_size = 300
-    num_layers = 1
-    output_size = 88
-
-    # see models.py and initialization.py for details
-    init = 'default'
-    scale = 1.0
-    parity = None # see models.py
-    t_distrib = torch.distributions.Uniform(0, 0.75)
-    path = 'results/77/final_state_dict.pt'
-
-    # when to save state dictionaries
-    save_init_model = True
-    save_final_model = True
-    save_every_epoch = False
-
-    # detect backprop anomalies
-    detect_anomaly = False
-
-
-# give all random number generators the same seed
-def _seed_all(_seed) -> None:
-    torch.manual_seed(_seed)
-    np.random.seed(_seed)
-    random.seed(_seed)
+from os.path import join as opj
 
 
 # this context is used when we are running things on the cpu
@@ -114,89 +36,31 @@ class NullContext(object):
 
 
 # a single optimization step
-@ex.capture
-def train_iter(device: device,
-               cuda_device: torch.cuda.device,
+def train_iter(sm: simmanager.SimManager,
+               device: device,
                input_tensor: Tensor,
                target: Tensor,
                mask: Tensor,
                model: nn.Module,
                loss_fcn: nn.Module,
-               optimizer: optim.Optimizer,
-               save_every_epoch: bool,
-               save_dir: str,
-               train_loader: DataLoader,
-               test_loader: DataLoader,
-               valid_loader: DataLoader,
-               low_off_notes: int,
-               high_off_notes: int,
-               _log,
-               _run,
-               logging=True):
+               optimizer: optim.Optimizer):
 
     input_tensor = input_tensor.to(device)
 
-    # number of songs in this batch
-    N = input_tensor.shape[0]
-
     output, hidden_tensors = model(input_tensor)
 
-    loss = loss_fcn(output, target, mask, model)/N
+    loss = loss_fcn(output, target, mask, model)
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 
-    # use sacred to log training loss and accuracy
-    if logging:
-        train_acc = compute_acc(model, train_loader, low=low_off_notes, high=high_off_notes)
-        _run.log_scalar("trainLoss", loss.cpu().detach().item())
-        _run.log_scalar("trainAccuracy", train_acc)
 
-    # save a copy of the model and make sacred remember it each epoch
-    if save_every_epoch and logging:
-        sd = deepcopy(model.state_dict())
-        torch.save(init_sd, save_dir + 'state_dict_' + str(epoch) + '.pt')
-        _run.add_artifact(save_dir + 'state_dict_' + str(epoch) + '.pt')
-
-
-# train a neural network
-# returns the final loss and accuracy on the training, testing, and validation sets
-@ex.capture
-def pytorch_train_loop(cuda: bool,
-                       model_dict: dict,
-                       initializer: dict,
-                       train_loader: DataLoader,
-                       test_loader: DataLoader,
-                       valid_loader: DataLoader,
-                       low_off_notes: int,
-                       high_off_notes: int,
-                       optmzr: str,
-                       lr: float,
-                       decay: float,
-                       regularization: float,
-                       num_epochs: int,
-                       save_dir: str,
-                       save_init_model,
-                       save_every_epoch,
-                       save_final_model,
-                       _seed,
-                       _log,
-                       _run,
-                       logging=True):
-
-    # construct and initialize the model
-    model = get_model(model_dict, initializer, cuda)
-
-    # save a copy of the initial model and make sacred remember it
-    if save_init_model and logging:
-        init_sd = deepcopy(model.state_dict())
-        torch.save(init_sd, save_dir + 'initial_state_dict.pt')
-        _run.add_artifact(save_dir + 'initial_state_dict.pt')
+def train_loop(flags, model):
 
     # if we are on cuda we construct the device and run everything on it
     cuda_device = NullContext()
     device = torch.device('cpu')
-    if cuda:
+    if flags.use_gpu:
         dev_name = 'cuda:' + str(gpu)
         cuda_device = torch.cuda.device(dev_name)
         device = torch.device(dev_name)
@@ -205,7 +69,8 @@ def pytorch_train_loop(cuda: bool,
     with cuda_device:
 
         # see metrics.py
-        loss_fcn = MaskedBCE(regularization, low_off_notes=low_off_notes, high_off_notes=high_off_notes)
+        loss_fcn = MaskedBCE(
+            regularization, low_off_notes=low_off_notes, high_off_notes=high_off_notes)
 
         # compute the metrics before training and log them
         if logging:
@@ -218,9 +83,12 @@ def pytorch_train_loop(cuda: bool,
             _run.log_scalar("testLoss", test_loss)
             _run.log_scalar("validLoss", val_loss)
 
-            train_acc = compute_acc(model, train_loader, low=low_off_notes, high=high_off_notes)
-            test_acc = compute_acc(model, test_loader, low=low_off_notes, high=high_off_notes)
-            val_acc = compute_acc(model, valid_loader, low=low_off_notes, high=high_off_notes)
+            train_acc = compute_acc(
+                model, train_loader, low=low_off_notes, high=high_off_notes)
+            test_acc = compute_acc(
+                model, test_loader, low=low_off_notes, high=high_off_notes)
+            val_acc = compute_acc(model, valid_loader,
+                                  low=low_off_notes, high=high_off_notes)
 
             _run.log_scalar("trainAccuracy", train_acc)
             _run.log_scalar("testAccuracy", test_acc)
@@ -239,7 +107,8 @@ def pytorch_train_loop(cuda: bool,
 
         # learning rate decay
         scheduler = None
-        scheduler = optim.lr_scheduler.LambdaLR(optimizer, lambda epoch: decay**epoch)
+        scheduler = optim.lr_scheduler.LambdaLR(
+            optimizer, lambda epoch: decay**epoch)
 
         # begin training loop
         for epoch in tqdm(range(num_epochs)):
@@ -272,8 +141,10 @@ def pytorch_train_loop(cuda: bool,
 
                 test_loss = compute_loss(loss_fcn, model, test_loader)
                 val_loss = compute_loss(loss_fcn, model, valid_loader)
-                test_acc = compute_acc(model, test_loader, low=low_off_notes, high=high_off_notes)
-                val_acc = compute_acc(model, valid_loader, low=low_off_notes, high=high_off_notes)
+                test_acc = compute_acc(
+                    model, test_loader, low=low_off_notes, high=high_off_notes)
+                val_acc = compute_acc(
+                    model, valid_loader, low=low_off_notes, high=high_off_notes)
 
                 _run.log_scalar("testLoss", test_loss)
                 _run.log_scalar("validLoss", val_loss)
@@ -291,165 +162,99 @@ def pytorch_train_loop(cuda: bool,
     test_loss = compute_loss(loss_fcn, model, test_loader)
     val_loss = compute_loss(loss_fcn, model, valid_loader)
 
-    train_acc = compute_acc(model, train_loader, low=low_off_notes, high=high_off_notes)
-    test_acc = compute_acc(model, test_loader, low=low_off_notes, high=high_off_notes)
-    val_acc = compute_acc(model, valid_loader, low=low_off_notes, high=high_off_notes)
+    train_acc = compute_acc(model, train_loader,
+                            low=low_off_notes, high=high_off_notes)
+    test_acc = compute_acc(
+        model, test_loader, low=low_off_notes, high=high_off_notes)
+    val_acc = compute_acc(model, valid_loader,
+                          low=low_off_notes, high=high_off_notes)
 
     return ((train_loss, test_loss, val_loss), (train_acc, test_acc, val_acc))
 
 
-# main function
-@ex.automain
-def train_loop(cuda,
-               gpu,
-               base_dir,
-               dataset,
-               num_epochs,
-               batch_size,
-               low_off_notes,
-               high_off_notes,
-               lr,
-               decay,
-               optmzr,
-               regularization,
-               do_hpsearch,
-               learning_rates,
-               decays,
-               regularizations,
-               hps_epochs,
-               architecture,
-               readout,
-               gradient_clipping,
-               jit,
-               lag,
-               window,
-               input_size,
-               hidden_size,
-               num_layers,
-               output_size,
-               detect_anomaly,
-               init,
-               scale,
-               parity,
-               t_distrib,
-               path,
-               save_init_model,
-               save_final_model,
-               save_every_epoch,
-               _seed,
-               _log,
-               _run):
+def main(_argv):
 
-    # save artifacts to a temporary directory that gets erased when the experiment is over
-    save_dir = base_dir + '/tmp_' + str(_seed)
-    os.system('mkdir ' + save_dir)
-    save_dir += '/'
+    flags = absl.flags.FLAGS
 
-    # give all random number generators the same seed
-    _seed_all(_seed)
+    # construct simulation manager
+    base_path = opj(flags.results_dir, flags.exp_name)
+    identifier = ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(4))
+    sim_name = 'run_{}'.format(identifier)
+    sm = simmanager.SimManager(sim_name, base_path, write_protect_dirs=False, tee_sdx_to='output.log')
 
-    model_dict = {'architecture': architecture,
-                  'readout': readout,
-                  'gradient_clipping': gradient_clipping,
-                  'jit': jit,
-                  'lag': lag,
-                  'window': window,
-                  'input_size': input_size,
-                  'hidden_size': hidden_size,
-                  'num_layers': num_layers,
-                  'output_size': output_size
-                 }
+    with sm:
 
-    initializer = {'init': init,
-                   'scale': scale,
-                   'parity': parity,
-                   't_distrib': t_distrib,
-                   'path': path,
-                   'low_off_notes': low_off_notes,
-                   'high_off_notes': high_off_notes
-                  }
+        # check for cuda
+        if flags.use_gpu and not torch.cuda.is_available():
+            raise OSError('CUDA is not available. Check your installation or set `use_gpu` to False.')
 
-    # if we are debugging we may want to detect autograd anomalies
-    torch.autograd.set_detect_anomaly(detect_anomaly)
+        # dump flags for this experiment
+        with open(opj(sm.data_path, 'flags.json'), 'w') as f:
+            json.dump(flags, f)
 
-    # construct the pytorch data loaders
-    train_loader, test_loader, valid_loader = get_loader(dataset, batch_size)
+        # generate, save, and set random seed
+        random_seed = datetime.now().microsecond
+        np.save(opj(sm.data_path, 'random_seed'), random_seed)
+        torch.manual_seed(random_seed)
+        np.random.seed(random_seed)
+        random.seed(random_seed)
 
-    # standard training loop
-    if not do_hpsearch:
+        # check for old model to restore from
+        old_model_dict = None
+        architecture = flags.architecture
+        n_rec = flags.n_rec
+        if flags.restore_from != '':
+            with open(opj(flags.restore_from, 'results', 'model_checkpoint.pkl'), 'rb') as f:
+                old_model_dict = pkl.load(f)
+            with open(opj(flags.restore_from, 'data', 'flags.json'), 'r') as f:
+                old_flags = json.load(f.read())
+                architecture = old_flags['architecture']
+                n_rec = old_flags['n_rec']
 
-        # the training loop function returns the metrics achieved at the end of training
-        # they will be logged by default, no need to do anything with them here
-        metrics = pytorch_train_loop(cuda,
-                                     model_dict,
-                                     initializer,
-                                     train_loader,
-                                     test_loader,
-                                     valid_loader,
-                                     low_off_notes,
-                                     high_off_notes,
-                                     optmzr,
-                                     lr,
-                                     decay,
-                                     regularization,
-                                     num_epochs,
-                                     save_dir,
-                                     save_init_model,
-                                     save_every_epoch,
-                                     save_final_model,
-                                     _seed,
-                                     _log,
-                                     _run)
+        model = FullRNN(flags, architecture, n_rec)
 
-    # only goal here is to find the best hyper parameters
-    else:
+if __name__ == '__main__':
 
-        min_test_loss = float('inf')
-        best_lr = 0
-        best_dcay = 0
-        best_reg = 0
+    # system
+    absl.flags.DEFINE_bool(
+        'use_gpu', False, 'Whether or not to use the GPU. Fails if True and CUDA is not available.')
+    absl.flags.DEFINE_string(
+        'exp_name', '', 'If non-empty works as a special directory for the experiment')
+    absl.flags.DEFINE_string('result_dir', 'trained_models',
+                             'Name of the directory to save all results within.')
 
-        hyperparams = product(learning_rates, decays, regularizations)
+    # training
+    absl.flags.DEFINE_enum('dataset', 'JSB_Chorales', [
+                           'JSB_Chorales', 'Nottingham', 'Piano_midi', 'MuseData'], 'Which dataset to train the model on.')
+    absl.flags.DEFINE_integer('train_iters', 20000,
+                              'How many training batches to show the network.')
+    absl.flags.DEFINE_integer('batch_size', 100, 'Batch size.')
+    absl.flags.DEFINE_float('lr', 0.001, 'Learning rate.')
+    absl.flags.DEFINE_integer(
+        'decay_every', 100, 'Shrink the learning rate after this many batches.')
+    absl.flags.DEFINE_float(
+        'lr_decay', 0.95, 'Shrink the learning rate by this factor.')
+    absl.flags.DEFINE_enum('optimizer', 'Adam', [
+                           'Adam', 'SGD', 'Adagrad', 'RMSprop'], 'Which optimizer to use.')
+    absl.flags.DEFINE_float('reg_coeff', 0.0001,
+                            'Coefficient for L2 regularization of weights.')
+    absl.flags.DEFINE_bool(
+        'use_grad_clip', False, 'Whether or not to clip the backward gradients by their magnitude.')
+    absl.flags.DEFINE_float(
+        'grad_clip', 1, 'Maximum magnitude of gradients if gradient clipping is used.')
+    absl.flags.DEFINE_integer('validate_every', 100, 'Validate the model at this many training steps.')
+    absl.flags.DEFINE_integer('save_every', 200, 'Save the model at this many training steps.')
 
-        for rate, dcay, reg in hyperparams:
+    # model
+    absl.flags.DEFINE_enum('architecture', 'TANH', [
+                           'TANH', 'LSTM', 'GRU'], 'Which recurrent architecture to use.')
+    absl.flags.DEFINE_integer(
+        'n_rec', 1024, 'How many recurrent neurons to use.')
+    absl.flags.DEFINE_enum('initialization', 'default', ['default', 'orthogonal', 'limit_cycle'],
+                           'Which initialization to use for the recurrent weight matrices. Default is uniformly distributed weights. Limit cycles only apply to TANH and GRU')
+    absl.flags.DEFINE_string(
+        'restore_from', '', 'If non-empty, restore all the previous model from this directory and train it using the new flags.')
 
-            # train a model with the given hyperparameters
-            # don't log anything, otherwise we will have a ridiculous amount of extraneous info
-            metrics = pytorch_train_loop(cuda,
-                                         model_dict,
-                                         initializer,
-                                         train_loader,
-                                         test_loader,
-                                         valid_loader,
-                                         optmzr,
-                                         rate,
-                                         dcay,
-                                         reg,
-                                         hps_epochs,
-                                         save_dir,
-                                         save_init_model,
-                                         save_every_epoch,
-                                         save_final_model,
-                                         _seed,
-                                         _log,
-                                         _run,
-                                             logging=False)
 
-            # loss is first index, test set is second index
-            test_loss = metrics[0][1]
+    absl.app.run(main)
 
-            # compare loss against other hyperparams and update if necessary
-            if test_loss == test_loss and test_loss < min_test_loss:
-                min_test_loss = test_loss
-                best_lr = rate
-                best_dcay = dcay
-                best_reg = reg
-
-        # record the best hyperparameters
-        _run.log_scalar("learning_rate", best_lr)
-        _run.log_scalar("decay", best_dcay)
-        _run.log_scalar("regularization", best_reg)
-
-    # wait a second then remove the temporary directory used for storing artifacts
-    sleep(1)
-    os.system('rm -r ' + save_dir)
