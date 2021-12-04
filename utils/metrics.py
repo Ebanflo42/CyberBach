@@ -17,40 +17,27 @@ class FrameAccuracy(nn.Module):
 
         super(FrameAccuracy, self).__init__()
 
-    def forward(self, output, target):
+    def forward(self, output, target, mask):
 
         N = output.shape[0]
 
-        prediction = (torch.sigmoid(output) > 0.5).type(torch.float32)
+        prediction = (output > 0.0).type(torch.float32)
 
         # sum over notes
         tru_pos = torch.sum(prediction*target, dim=2)
-        # Bay et al sum over time but this yields way higher results than Boulanger-Lewandowski
-        #tru_pos = torch.sum(tru_pos, dim=1)
 
-        # compute accuracy for all sequences at each time point
-        T = output.shape[1]
-        acc_over_time = []
+        # get false positives and negatives for each sequence
+        false_pos = torch.sum(prediction*(1 - target), dim=2)
+        false_neg = torch.sum((1 - prediction)*target, dim=2)
 
-        for t in range(T):
+        # true negatives are unremarkable for sparse binary sequences
+        # this gives accuracy at each batch and time step
+        acc = torch.nan_to_num(tru_pos/(tru_pos + false_pos + false_neg), nan=1.0)
 
-            # get false positives and negatives for each sequence
-            false_pos = torch.sum(prediction[:, t]*(1 - target[:, t]), dim=1)
-            false_neg = torch.sum((1 - prediction[:, t])*target[:, t], dim=1)
+        # apply the mask by taking the mean only over the parts of the sequences which matter
+        masked_acc = torch.sum(mask*acc)/torch.sum(mask)
 
-            # quick trick to try to avoid NaNs
-            false_pos += F.relu(1 - tru_pos[:, t])
-
-            # true negatives are unremarkable for sparse binary sequences
-            this_acc = tru_pos[:, t]/(tru_pos[:, t] + false_pos + false_neg)
-
-            acc_over_time.append(this_acc)
-
-        # first take the average for each sequence, then sum over sequences
-        result = torch.cat(acc_over_time).reshape(T, N)
-        result = torch.mean(result)
-
-        return result
+        return masked_acc
 
 
 # average binary cross entropy per time step (from logits)

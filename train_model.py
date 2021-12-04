@@ -34,9 +34,9 @@ flags.DEFINE_integer(
 # training
 flags.DEFINE_enum('dataset', 'JSB_Chorales', [
     'JSB_Chorales', 'Nottingham', 'Piano_midi', 'MuseData'], 'Which dataset to train the model on.')
-flags.DEFINE_integer('train_iters', 20000,
+flags.DEFINE_integer('n_steps', 20000,
                      'How many training batches to show the network.')
-flags.DEFINE_integer('batch_size', 64, 'Batch size.')
+flags.DEFINE_integer('batch_size', 50, 'Batch size.')
 flags.DEFINE_float('lr', 0.001, 'Learning rate.')
 flags.DEFINE_integer(
     'decay_every', 1000, 'Shrink the learning rate after this many training steps.')
@@ -44,7 +44,7 @@ flags.DEFINE_float(
     'lr_decay', 0.95, 'Shrink the learning rate by this factor.')
 flags.DEFINE_enum('optimizer', 'Adam', [
     'Adam', 'SGD', 'Adagrad', 'RMSprop'], 'Which optimizer to use.')
-flags.DEFINE_float('reg_coeff', 0.001,
+flags.DEFINE_float('reg_coeff', 0.0001,
                    'Coefficient for L2 regularization of weights.')
 flags.DEFINE_bool(
     'use_grad_clip', False, 'Whether or not to clip the backward gradients by their magnitude.')
@@ -59,7 +59,7 @@ flags.DEFINE_integer(
 flags.DEFINE_enum('architecture', 'TANH', [
     'TANH', 'LSTM', 'GRU'], 'Which recurrent architecture to use.')
 flags.DEFINE_integer(
-    'n_rec', 512, 'How many recurrent neurons to use.')
+    'n_rec', 256, 'How many recurrent neurons to use.')
 flags.DEFINE_enum('initialization', 'default', ['default', 'orthogonal', 'limit_cycle'],
                   'Which initialization to use for the recurrent weight matrices. Default is uniform Xavier. Limit cycles only apply to TANH and GRU')
 flags.DEFINE_string(
@@ -118,7 +118,7 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
         loss_fcn = MaskedBCE()
 
         # begin training loop
-        for i in range(FLAGS.train_iters):
+        for i in range(FLAGS.n_steps):
 
             # get next training sample
             x, y, mask = next(train_iter)
@@ -145,7 +145,7 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
             scheduler.step()
 
             # compute accuracy
-            acc = acc_fcn(output, y)
+            acc = acc_fcn(output, y, mask)
 
             # append metrics
             train_loss.append(bce_loss.cpu().item())
@@ -155,7 +155,7 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
             if i > 0 and i % FLAGS.validate_every == 0:
 
                 print(
-                    f'Validating at iteration {i}.\n  Training loss: {train_loss[-1]}\n  Training accuracy: {100*train_acc[-1]}%\n  L2 regularization: {train_reg[-1]}')
+                    f'Validating at iteration {i}.\n  Training loss: {train_loss[-1]:.3}\n  Training accuracy: {100*train_acc[-1]:.3}%\n  L2 regularization: {train_reg[-1]:.3}')
 
                 # get next validation sample
                 x, y, mask = next(valid_iter)
@@ -168,14 +168,14 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
                 bce_loss = loss_fcn(output, y, mask)
 
                 # compute accuracy
-                acc = acc_fcn(output, y)
+                acc = acc_fcn(output, y, mask)
 
                 # append metrics
                 valid_loss.append(bce_loss.cpu().item())
                 valid_acc.append(acc.cpu().item())
 
                 print(
-                    f'  Validation loss: {valid_loss[-1]}\n  Validation accuracy: {100*valid_acc[-1]}%\n')
+                    f'  Validation loss: {valid_loss[-1]:.3}\n  Validation accuracy: {100*valid_acc[-1]:.3}%\n')
 
             if i > 0 and i % FLAGS.save_every == 0:
 
@@ -204,8 +204,8 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
 
             output, hidden = model(x)
 
-            bce_loss = loss_fcn(output, y).cpu().item()
-            acc = acc_fcn(output, y).cpu().item()
+            bce_loss = loss_fcn(output, y, mask).cpu().item()
+            acc = acc_fcn(output, y, mask).cpu().item()
 
             batch_size = x.shape[0]
             tot_test_samples += batch_size
@@ -215,7 +215,7 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
         final_test_loss = np.sum(test_loss)/tot_test_samples
         final_test_acc = np.sum(test_acc)/tot_test_samples
         print(
-            f'  Testing loss: {final_test_loss}\n  Testing accuracy: {final_test_acc}')
+            f'  Testing loss: {final_test_loss:.3}\n  Testing accuracy: {100*final_test_acc:.3}%')
 
         print('Final save.')
         np.save(opj(sm.paths.results_path, 'testing_loss'), final_test_loss)
@@ -244,7 +244,11 @@ def main(_argv):
 
         # dump FLAGS for this experiment
         with open(opj(sm.paths.data_path, 'FLAGS.json'), 'w') as f:
-            json.dump(FLAGS.__dir__(), f)
+            flag_dict = {}
+            for k in FLAGS._flags().keys():
+                if k not in FLAGS.__dict__['__hiddenflags']:
+                    flag_dict[k] = FLAGS.__getattr__(k)
+            json.dump(flag_dict, f)
 
         # generate, save, and set random seed
         if FLAGS.random_seed != -1:
@@ -260,7 +264,7 @@ def main(_argv):
         if FLAGS.restore_from != '':
 
             with open(opj(FLAGS.restore_from, 'data', 'FLAGS.json'), 'r') as f:
-                old_FLAGS = json.load(f.read())
+                old_FLAGS = json.load(f)
 
             architecture = old_FLAGS['architecture']
             if architecture != FLAGS.architecture:
