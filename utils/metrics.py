@@ -9,6 +9,8 @@ import torch.nn.functional as F
 
 # see Bay et al 2009 for the definition of frame-level accuracy
 # this module also returns the mean over all sequences
+
+
 class FrameAccuracy(nn.Module):
 
     def __init__(self):
@@ -47,5 +49,34 @@ class FrameAccuracy(nn.Module):
         # first take the average for each sequence, then sum over sequences
         result = torch.cat(acc_over_time).reshape(T, N)
         result = torch.mean(result)
+
+        return result
+
+
+# average binary cross entropy per time step (from logits)
+# with a mask to indicate where the data actually is (songs in the same batch have different length)
+class MaskedBCE(nn.Module):
+
+    def __init__(self):
+
+        super(MaskedBCE, self).__init__()
+
+    def forward(self, output, target, mask):
+        '''
+        :param output: time-dependent output of a recurrent neural network (logits)
+        :param target: binary sequence (should be float32) in indicating which notes should be played
+        :param mask: binary sequence (also float32) with ones where the actual song is and 0s elsewhere, should not include a dimensionfor notes
+        :return: binary cross entropy averaged over every time step of every song in the batch
+        '''
+
+        surprisal = F.log_softmax(output, dim=-1)
+
+        # taking the sum and dividing by the sum of the mask gaurantees that
+        # only the relevant time steps will contribute to the loss
+        # i.e. this ends up as an average over batch and time
+        mask_factor = torch.tile(torch.reshape(
+            mask, (mask.shape[0], mask.shape[1], 1)), (1, 1, target.shape[2]))
+        ce = -torch.sum(mask_factor*target*surprisal)
+        result = ce/torch.sum(mask)
 
         return result

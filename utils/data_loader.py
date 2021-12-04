@@ -30,7 +30,9 @@ def get_max_seq_len(train_set, valid_set, test_set):
 
 
 def pad_seq(seq, seqlen):
-    return np.concatenate((seq, np.zeros((seqlen - len(seq), 88), dtype=seq.dtype)), axis=0)
+    result = np.concatenate((seq, np.zeros((seqlen - len(seq), 88), dtype=seq.dtype)), axis=0)
+    mask = np.concatenate((np.ones(len(seq) - 1, dtype=np.float32), np.zeros(seqlen - len(seq), dtype=np.float32)))
+    return result, mask
 
 
 # testing iterator loops through the testing set once
@@ -42,11 +44,13 @@ def create_testing_iterator(test_set, batch_size, seqlen):
     @background(max_prefetch=2)
     def test_iter():
         for ix in indices:
-            songs = np.stack([pad_seq(test_set[i], seqlen) for i in range(
-                ix, np.minimum(n_samples, ix + batch_size))], axis=0)
+            padded_songs = [pad_seq(test_set[i], seqlen) for i in range(
+                ix, np.minimum(n_samples, ix + batch_size))]
+            songs, masks = np.stack([s[0] for s in padded_songs]), np.stack([s[1] for s in padded_songs])
             x = torch.tensor(songs[:, :-1], dtype=torch.float32)
             y = torch.tensor(songs[:, 1:], dtype=torch.float32)
-            yield x, y
+            mask = torch.tensor(masks, dtype=torch.float32)
+            yield x, y, mask
 
     return test_iter()
 
@@ -60,11 +64,13 @@ def create_validation_iterator(valid_set, batch_size, seqlen):
     @background(max_prefetch=2)
     def valid_iter():
         for ix in cycle(indices):
-            songs = np.stack([pad_seq(valid_set[i], seqlen) for i in range(
-                ix, np.minimum(n_samples, ix + batch_size))], axis=0)
+            padded_songs = [pad_seq(valid_set[i], seqlen) for i in range(
+                ix, np.minimum(n_samples, ix + batch_size))]
+            songs, masks = np.stack([s[0] for s in padded_songs]), np.stack([s[1] for s in padded_songs])
             x = torch.tensor(songs[:, :-1], dtype=torch.float32)
             y = torch.tensor(songs[:, 1:], dtype=torch.float32)
-            yield x, y
+            mask = torch.tensor(masks, dtype=torch.float32)
+            yield x, y, mask
 
     return valid_iter()
 
@@ -79,11 +85,12 @@ def create_training_iterator(train_set, batch_size, seqlen):
         while True:
             indices = [i for i in range(n_samples)]
             random.shuffle(indices)
-            songs = np.stack([pad_seq(train_set[i], seqlen)
-                             for i in indices[:batch_size]], axis=0)
+            padded_songs = [pad_seq(train_set[i], seqlen) for i in indices[:batch_size]]
+            songs, masks = np.stack([s[0] for s in padded_songs]), np.stack([s[1] for s in padded_songs])
             x = torch.tensor(songs[:, :-1], dtype=torch.float32)
             y = torch.tensor(songs[:, 1:], dtype=torch.float32)
-            yield x, y
+            mask = torch.tensor(masks, dtype=torch.float32)
+            yield x, y, mask
 
     return train_iter()
 
