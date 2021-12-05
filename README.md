@@ -4,7 +4,6 @@ This repository is for training neural networks and regressive models on the mus
 
 # TODO
 
-## Test music synthesis side of the project
 ## Test alternative initializations
 ## Implement some plotting, particular for predicted vs actual notes
 ## Plot phase portraits?

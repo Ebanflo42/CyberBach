@@ -71,7 +71,8 @@ def to_piano_roll(in_filename: str, min_note: int, max_note: int):
     msg_list = get_msg_list(midi)
     increment = get_increment(msg_list)
 
-    array = np.zeros((int(midi.length/increment) + 1, max_note - min_note + 1), dtype='uint8')
+    array = np.zeros((int(midi.length/increment) + 1,
+                     max_note - min_note + 1), dtype='uint8')
 
     index = 0
     on_notes = []
@@ -83,7 +84,8 @@ def to_piano_roll(in_filename: str, min_note: int, max_note: int):
         if msg.type == 'note_on':
             on_notes.append((msg.note - min_note, msg.velocity))
         elif msg.type == 'note_off':
-            on_notes = [(n, v) for (n, v) in on_notes if n != msg.note - min_note]
+            on_notes = [(n, v)
+                        for (n, v) in on_notes if n != msg.note - min_note]
 
         for t in range(index, index + time + 1):
             for note, velocity in on_notes:
@@ -104,7 +106,8 @@ def to_midi(min_note, piano_roll_song, filename):
     #track.append(mido.Message('program_change', program=12, time=0))
 
     track.append(mido.MetaMessage('key_signature', key='C', time=0))
-    track.append(mido.MetaMessage('time_signature', numerator=4, denominator=4, clocks_per_click=24, notated_32nd_notes_per_beat=8, time=0))
+    track.append(mido.MetaMessage('time_signature', numerator=4, denominator=4,
+                 clocks_per_click=24, notated_32nd_notes_per_beat=8, time=0))
     #track.append(mido.MetaMessage('set_tempo', tempo=705882))
 
     # keep track of which notes are being played at the given time
@@ -138,7 +141,8 @@ def to_midi(min_note, piano_roll_song, filename):
                 if not j in on_notes:
 
                     # this new message indicates the note was turned on
-                    new_msg = mido.Message('note_on', note=min_note+j, velocity=90, time=0)
+                    new_msg = mido.Message(
+                        'note_on', note=min_note+j, velocity=90, time=0)
 
                     # it is a new message so we append it to the appropriate list
                     new_messages.append(new_msg)
@@ -160,7 +164,8 @@ def to_midi(min_note, piano_roll_song, filename):
                 if j in on_notes:
 
                     # this new message indicates the note was turned off
-                    new_msg = mido.Message('note_off', note=min_note+j, velocity=0, time=0)
+                    new_msg = mido.Message(
+                        'note_off', note=min_note+j, velocity=0, time=0)
 
                     # it is a new message so we append it to the appropriate list
                     new_messages.append(new_msg)
@@ -208,76 +213,39 @@ def to_midi(min_note, piano_roll_song, filename):
     mid.save(filename)
 
 
+
 def write_song(model, piano_roll, FLAGS):
-    """
-    :param model: pytorch model which will be used to synthesize new music
-    :param piano roll: 2D binary array indicating which notes are played at a given time
-    :param true_steps: how many frames of the new song are to be copied directly from the original
-    :param input_steps: how many frames of the new song are to be the output of the model being fed piano_roll
-    :param free_steps: how many frames of the new song are to be the model predicting the next frame based off of the song constructed so far
-    :param history: how many time steps the model will look back in the past while constructing the new song
-    :param variance: variance of the noise to be added to the hidden state (in order to avoid stable periodic orbits)
-    """
 
-    # first few steps of the song will be the original music
-    T1 = len(piano_roll)
-    T = 2*T1# + FLAGS.free_steps
-    song = np.zeros((T, 88), dtype='uint8')
-
-    # format the input to the model
-    input_tensor = torch.tensor(piano_roll, dtype=torch.float32)
-    input_tensor = input_tensor.unsqueeze(0)
-
-    # format the output of the model
-    output_tensor, hiddens = model(input_tensor)
-    np_output = output_tensor.detach().numpy().reshape(T1, 88)
-    binary = (np_output > 0).astype(np.uint8)
-
-    # check for too many or too few notes being played
-    # adjust the threshold for the logits if the number of notes falls outside the desired range
-    '''
-    for t in range(T1):
-        n_notes = np.sum(binary[t])
-        if n_notes > FLAGS.max_on_notes:
-            threshold = 0
-            while np.sum((np_output[t] > threshold).astype(np.uint8)) > FLAGS.max_on_notes:
-                threshold += 1
-            binary[t] = (np_output[t] > threshold).astype(np.uint8)
-        if n_notes < FLAGS.min_on_notes:
-            threshold = 0
-            while np.sum((np_output[t] > threshold).astype(np.uint8)) < FLAGS.min_on_notes:
-                threshold -= 1
-            binary[t] = (np_output[t] > threshold).astype(np.uint8)
-    '''
-
-    song[:T1] = binary
+    # the full history of the song
+    T = len(piano_roll)
+    song = np.zeros((T + FLAGS.length, 88), dtype=np.uint8)
+    song[:T] = piano_roll
 
     # the last steps of the model will be the model making predictions off of its own output
-    for t in range(T1, 2*T1):
+    for t in range(T, T + FLAGS.length):
 
         # get the last frame of the new song, double the intensity since it is both input and last step
-        last_output = torch.tensor(song[t - 1], dtype=torch.float32).unsqueeze(0)
-        last_output += FLAGS.noise_variance*torch.randn((1, 88))
-        last_output = last_output.unsqueeze(0)
+        last_song = torch.tensor(
+            song[:t - 1], dtype=torch.float32).unsqueeze(0)
+        last_song += FLAGS.noise_variance*torch.randn((1, 88))
 
         # use the model to predict the next frame
-        new_output, hiddens = model(last_output)
-        np_output = new_output.detach().numpy().reshape(88)
+        new_output, hiddens = model(last_song)
+        np_output = new_output[0, -1].detach().numpy().reshape(88)
         binary = (np_output > 0).astype(np.uint8)
 
-        # again adjust the threshold if there are too many notes
+        # check if there are too few or too many notes
         n_notes = np.sum(binary)
         if n_notes > FLAGS.max_on_notes:
-            threshold = 0
-            while np.sum((np_output > threshold).astype(np.uint8)) > FLAGS.max_on_notes:
-                threshold += 1
-            binary = (np_output > threshold).astype(np.uint8)
-        if n_notes < FLAGS.min_on_notes:
-            threshold = 0
-            while np.sum((np_output > threshold).astype(np.uint8)) < FLAGS.min_on_notes:
-                threshold -= 1
-            binary = (np_output > threshold).astype(np.uint8)
+            highest_indices = np.argsort(np_output)[-FLAGS.max_on_notes:]
+            binary = np.zeros_like(binary)
+            np.put_along_axis(binary, highest_indices, 1, 0)
+        elif n_notes < FLAGS.min_on_notes:
+            highest_indices = np.argsort(np_output)[-FLAGS.min_on_notes:]
+            binary = np.zeros_like(binary)
+            np.put_along_axis(binary, highest_indices, 1, 0)
 
         song[t] = binary
 
-    return song
+    # cut out the part which was not fully synthesized by the network
+    return song[T:]

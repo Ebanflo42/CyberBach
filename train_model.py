@@ -99,17 +99,16 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
     with cuda_device:
 
         # construct the optimizer
-        if FLAGS.optimizer == "SGD":
+        if FLAGS.optimizer == 'SGD':
             optimizer = optim.SGD(model.parameters(), lr=FLAGS.lr)
-        elif FLAGS.optimizer == "Adam":
+        elif FLAGS.optimizer == 'Adam':
             optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr)
-        elif FLAGS.optimizer == "RMSprop":
+        elif FLAGS.optimizer == 'RMSprop':
             optimizer = optim.RMSprop(model.parameters(), lr=FLAGS.lr)
-        elif FLAGS.optimizer == "Adagrad":
+        elif FLAGS.optimizer == 'Adagrad':
             optimizer = optim.Adagrad(model.parameters(), lr=FLAGS.lr)
         else:
-            raise ValueError(
-                "Optimizer {} not recognized.".format(FLAGS.optimizer))
+            raise ValueError(f'Optimizer {FLAGS.optimizier} not recognized.')
 
         # learning rate decay
         scheduler = None
@@ -156,8 +155,9 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
 
             if i > 0 and i % FLAGS.validate_every == 0:
 
+                timestamp = datetime.now().strftime('%H:%M:%S')
                 print(
-                    f'Validating at iteration {i}.\n  Training loss: {train_loss[-1]:.3}\n  Training accuracy: {100*train_acc[-1]:.3}%\n  L2 regularization: {train_reg[-1]:.3}')
+                    f'{timestamp} Validating {sm.sim_name} at iteration {i}.\n  Training loss: {train_loss[-1]:.3}\n  Training accuracy: {100*train_acc[-1]:.3}%\n  L2 regularization: {train_reg[-1]:.3}')
 
                 # get next validation sample
                 x, y, mask = next(valid_iter)
@@ -181,7 +181,8 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
 
             if i > 0 and i % FLAGS.save_every == 0:
 
-                print(f'Saving at iteration {i}.\n')
+                timestamp = datetime.now().strftime('%H:%M:%S')
+                print(f'{timestamp} Saving {sm.sim_name} at iteration {i}.\n')
 
                 np.save(opj(sm.paths.results_path, 'training_loss'), train_loss)
                 np.save(opj(sm.paths.results_path,
@@ -196,7 +197,8 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
                 torch.save(model.state_dict(), opj(
                     sm.paths.results_path, 'model_checkpoint.pt'))
 
-        print('Finished training. Entering testing phase.')
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        print(f'{timestamp} Finished training. Entering testing phase.')
 
         test_loss = []
         test_acc = []
@@ -222,11 +224,14 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
         print(
             f'  Testing loss: {final_test_loss:.3}\n  Testing accuracy: {100*final_test_acc:.3}%')
 
-        print('Final save.')
+        print(f'Final save of.')
         np.save(opj(sm.paths.results_path, 'testing_loss'), final_test_loss)
         np.save(opj(sm.paths.results_path, 'testing_accuracy'), final_test_acc)
         torch.save(model.state_dict(), opj(
             sm.paths.results_path, 'model_checkpoint.pt'))
+        date = datetime.now().strftime('%d-%m-%Y')
+        timestamp = datetime.now().strftime('%H:%M:%S')
+        print(f'Training {sm.sim_name} ended on {date} at {timestamp}.')
 
 
 def main(_argv):
@@ -236,7 +241,9 @@ def main(_argv):
     identifier = ''.join(random.choice(
         string.ascii_lowercase + string.digits) for _ in range(4))
     sim_name = 'model_{}'.format(identifier)
-    print(f'Beginning to train {sim_name}.')
+    date = datetime.now().strftime('%d-%m-%Y')
+    timestamp = datetime.now().strftime('%H:%M:%S')
+    print(f'\nBeginning to train {sim_name} on {date} at {timestamp}.\n')
     sm = simmanager.SimManager(
         sim_name, base_path, write_protect_dirs=False, tee_stdx_to='output.log')
 
