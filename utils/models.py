@@ -34,7 +34,7 @@ def get_constructor(architecture: str):
 # A pytorch model together with a linear read-out
 class MusicRNN(nn.Module):
 
-    def __init__(self, flags, architecture: str, n_rec: int):
+    def __init__(self, architecture: str, n_rec: int, use_grad_clip=False, grad_clip=1):
 
         super(MusicRNN, self).__init__()
 
@@ -53,9 +53,9 @@ class MusicRNN(nn.Module):
         self.rnn = constructor(input_size=self.n_in, hidden_size=self.n_rec, num_layers=1, batch_first=True)
 
         # gradient clipping if we want it
-        if flags.use_grad_clip:
+        if use_grad_clip:
             for p in self.parameters():
-                p.register_hook(lambda grad: torch.clamp(grad, -flags.grad_clip, flags.grad_clip))
+                p.register_hook(lambda grad: torch.clamp(grad, -grad_clip, grad_clip))
 
     def forward(self, x):
 

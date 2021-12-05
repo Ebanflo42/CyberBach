@@ -4,10 +4,12 @@ as well as synthesizing new music.
 """
 
 import numpy as np
-import random
 import torch
 import mido
 import os
+
+from tqdm import tqdm
+from os.path import join as opj
 
 
 def get_min_max_note(directory: str):
@@ -21,7 +23,7 @@ def get_min_max_note(directory: str):
 
     for filename in os.listdir(directory):
         if filename.endswith('.mid'):
-            midfile = mido.MidiFile(directory + '/' + filename)
+            midfile = mido.MidiFile(opj(directory,  filename))
             for msg in midfile:
                 if msg.type == 'note_on':
                     note = msg.note
@@ -206,13 +208,7 @@ def to_midi(min_note, piano_roll_song, filename):
     mid.save(filename)
 
 
-def write_song(model,
-               piano_roll,
-               true_steps: int,
-               input_steps: int,
-               free_steps: int,
-               history: int,
-               variance: float):
+def write_song(model, piano_roll, FLAGS):
     """
     :param model: pytorch model which will be used to synthesize new music
     :param piano roll: 2D binary array indicating which notes are played at a given time
@@ -224,72 +220,60 @@ def write_song(model,
     """
 
     # first few steps of the song will be the original music
-    T = true_steps + input_steps + free_steps
+    T1 = len(piano_roll)
+    T = T1 + FLAGS.free_steps
     song = np.zeros((T, 88), dtype='uint8')
-    song[0 : true_steps] = piano_roll[0 : true_steps]
 
     # format the input to the model
-    tsis = true_steps + input_steps
-    input_tensor = torch.tensor(piano_roll[0 : tsis], dtype=torch.float)
+    input_tensor = torch.tensor(piano_roll, dtype=torch.float32)
     input_tensor = input_tensor.unsqueeze(0)
 
     # format the output of the model
-    # the next few steps will be the output of the model given the true song as input
     output_tensor, hiddens = model(input_tensor)
-    binary = (torch.sigmoid(output_tensor) > 0.5).type(torch.uint8)
-    reformatted = binary.reshape(tsis, 88).detach().numpy()
-    song[true_steps : true_steps + input_steps] = reformatted[true_steps : true_steps + input_steps]
+    np_output = output_tensor.detach().numpy()
+    binary = (np_output > 0).type(np.uint8)
+    reformatted = binary.reshape(T1, 88)
 
-    # some tricks to keep the system from falling into a periodic orbit
-    last_binary = None
-    periodicity_detected = False
+    # check for too many or too few notes being played
+    # adjust the threshold for the logits if the number of notes falls outside the desired range
+    for t in range(T1):
+        if np.sum(reformatted[t]) > FLAGS.max_on_notes:
+            threshold = 0
+            while np.sum((np_output[t] > threshold).type(torch.uint8)) > FLAGS.max_on_notes:
+                threshold += 1
+            reformatted[t] = (np_output[t] > threshold).type(torch.uint8)
+        if np.sum(reformatted[t]) < FLAGS.min_on_notes:
+            threshold = 0
+            while np.sum((np_output[t] > threshold).type(torch.uint8)) < FLAGS.min_on_notes:
+                threshold -= 1
+            reformatted[t] = (np_output[t] > threshold).type(torch.uint8)
+
+    song[:T1] = reformatted
 
     # the last steps of the model will be the model making predictions off of its own output
-    for t in range(tsis, tsis + free_steps):
+    for t in tqdm(range(T1, T1 + FLAGS.free_steps)):
 
         # get the last frame of the new song, double the intensity since it is both input and last step
-        last_output = 2*torch.tensor(song[t - 1 - history : t - 1], dtype=torch.float).unsqueeze(0)
-        shp = last_output.shape
-        last_output[:, :, 25 : 75] += variance*torch.randn((1, history, 50))
-
-        # add some extra noise to the input to some channels to knock the system out of a limit cycle
-        """
-        if periodicity_detected:
-
-            # randomly select 10 channels to add noise too
-            for i in range(10):
-
-                ix = random.randint(25, 75)
-                last_output[:, :, ix] += 0.5*torch.randn((1, history))
-
-            #last_output += 0.5*torch.randn((1, history, 88))
-
-            periodicity_detected = False
-        """
+        last_output = torch.tensor(song[t - 1], dtype=torch.float32).unsqueeze(0)
+        last_output += FLAGS.noise_variance*torch.randn((1, 1, 88))
 
         # use the model to predict the next frame
         new_output, hiddens = model(last_output)
-        binary = (torch.sigmoid(new_output[0, -1]) > 0.5).type(torch.uint8)
-        reformatted = binary.reshape(88).detach().type(torch.uint8).numpy()
+        np_output = new_output.detach().numpy().reshape(88)
+        binary = (new_output > 0).type(np.uint8)
 
-        # filter out note blasts
-        if np.sum(reformatted) > 8:
+        # again adjust the threshold if there are too many notes
+        if np.sum(binary[t]) > FLAGS.max_on_notes:
+            threshold = 0
+            while np.sum((np_output[t] > threshold).type(torch.uint8)) > FLAGS.max_on_notes:
+                threshold += 1
+            binary[t] = (np_output[t] > threshold).type(torch.uint8)
+        if np.sum(binary[t]) < FLAGS.min_on_notes:
+            threshold = 0
+            while np.sum((np_output[t] > threshold).type(torch.uint8)) < FLAGS.min_on_notes:
+                threshold -= 1
+            binary[t] = (np_output[t] > threshold).type(torch.uint8)
 
-            num = np.sum(reformatted, dtype='int') - 8
-            ixs = [i for i in range(88) if reformatted[i] > 0]
-
-            reformatted = np.zeros(reformatted.shape)
-
-            for i in range(num//2, len(ixs) - num//2):
-                reformatted[ixs[i]] = 1
-
-        song[t] = reformatted
-
-        now = song[t]
-        two = song[t - 2]
-        three = song[t - 3]
-        four = song[t - 4]
-        if np.sum(now*two) > 3 or np.sum(now*three) > 3 or np.sum(now*four) > 3:
-            periodicity_detected = True
+        song[t] = binary
 
     return song

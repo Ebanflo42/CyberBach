@@ -26,7 +26,7 @@ flags.DEFINE_bool(
     'use_gpu', False, 'Whether or not to use the GPU. Fails if True and CUDA is not available.')
 flags.DEFINE_string(
     'exp_name', '', 'If non-empty works as a special sub-directory for the experiment')
-flags.DEFINE_string('results_path', 'results',
+flags.DEFINE_string('results_path', 'models',
                     'Name of the directory to save all results within.')
 flags.DEFINE_integer(
     'random_seed', -1, 'If not negative 1, set the random seed to this value. Otherwise the random seed will be the current microsecond.')
@@ -34,7 +34,7 @@ flags.DEFINE_integer(
 # training
 flags.DEFINE_enum('dataset', 'JSB_Chorales', [
     'JSB_Chorales', 'Nottingham', 'Piano_midi', 'MuseData'], 'Which dataset to train the model on.')
-flags.DEFINE_integer('n_steps', 20000,
+flags.DEFINE_integer('n_steps', 10000,
                      'How many training batches to show the network.')
 flags.DEFINE_integer('batch_size', 50, 'Batch size.')
 flags.DEFINE_float('lr', 0.001, 'Learning rate.')
@@ -42,7 +42,7 @@ flags.DEFINE_integer(
     'decay_every', 1000, 'Shrink the learning rate after this many training steps.')
 flags.DEFINE_float(
     'lr_decay', 0.95, 'Shrink the learning rate by this factor.')
-flags.DEFINE_enum('optimizer', 'Adam', [
+flags.DEFINE_enum('optimizer', 'RMSprop', [
     'Adam', 'SGD', 'Adagrad', 'RMSprop'], 'Which optimizer to use.')
 flags.DEFINE_float('reg_coeff', 0.0001,
                    'Coefficient for L2 regularization of weights.')
@@ -70,8 +70,10 @@ flags.DEFINE_string(
 class NullContext(object):
     def __init__(self):
         pass
+
     def __enter__(self):
         pass
+
     def __exit__(self, type, value, traceback):
         pass
 
@@ -182,14 +184,17 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
                 print(f'Saving at iteration {i}.\n')
 
                 np.save(opj(sm.paths.results_path, 'training_loss'), train_loss)
-                np.save(opj(sm.paths.results_path, 'training_accuracy'), train_acc)
-                np.save(opj(sm.paths.results_path, 'training_regularization'), train_reg)
+                np.save(opj(sm.paths.results_path,
+                        'training_accuracy'), train_acc)
+                np.save(opj(sm.paths.results_path,
+                        'training_regularization'), train_reg)
 
                 np.save(opj(sm.paths.results_path, 'validation_loss'), valid_loss)
-                np.save(opj(sm.paths.results_path, 'validation_accuracy'), valid_acc)
+                np.save(opj(sm.paths.results_path,
+                        'validation_accuracy'), valid_acc)
 
                 torch.save(model.state_dict(), opj(
-                    sm.paths.results_path, 'model_checkpoint'))
+                    sm.paths.results_path, 'model_checkpoint.pt'))
 
         print('Finished training. Entering testing phase.')
 
@@ -221,7 +226,7 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
         np.save(opj(sm.paths.results_path, 'testing_loss'), final_test_loss)
         np.save(opj(sm.paths.results_path, 'testing_accuracy'), final_test_acc)
         torch.save(model.state_dict(), opj(
-            sm.paths.results_path, 'model_checkpoint'))
+            sm.paths.results_path, 'model_checkpoint.pt'))
 
 
 def main(_argv):
@@ -230,8 +235,8 @@ def main(_argv):
     base_path = opj(FLAGS.results_path, FLAGS.exp_name)
     identifier = ''.join(random.choice(
         string.ascii_lowercase + string.digits) for _ in range(4))
-    sim_name = 'run_{}'.format(identifier)
-    print(f'Beginning experiment {sim_name}.')
+    sim_name = 'model_{}'.format(identifier)
+    print(f'Beginning to train {sim_name}.')
     sm = simmanager.SimManager(
         sim_name, base_path, write_protect_dirs=False, tee_stdx_to='output.log')
 
@@ -275,12 +280,14 @@ def main(_argv):
                 print(
                     'Warning: restored number of recurrent units does not agree with number of recurrent units specified in FLAGS.')
 
-            model = MusicRNN(FLAGS, architecture, n_rec)
+            model = MusicRNN(
+                architecture, n_rec, use_grad_clip=FLAGS.use_grad_clip, grad_clip=FLAGS.grad_clip)
             model.load_state_dict(torch.load(
                 opj(FLAGS.restore_from, 'results', 'model_checkpoint.pt')))
 
         else:
-            model = MusicRNN(FLAGS, FLAGS.architecture, FLAGS.n_rec)
+            model = MusicRNN(FLAGS.architecture, FLAGS.n_rec,
+                             use_grad_clip=FLAGS.use_grad_clip, grad_clip=FLAGS.grad_clip)
             initialize(model, FLAGS)
 
         train_iter, valid_iter, test_iter = get_datasets(FLAGS)
