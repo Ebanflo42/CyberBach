@@ -19,6 +19,7 @@ from utils.midi import to_midi, write_song
 FLAGS = flags.FLAGS
 
 flags.DEFINE_string('results_path', 'songs', 'Where to store new songs.')
+flags.DEFINE_string('exp_name', '', 'If non-empty acts as a special subdirectory for a set of songs.')
 flags.DEFINE_enum('dataset', 'JSB_Chorales', ['JSB_Chorales', 'Notthingham', 'Piano_midi', 'MuseData'], 'Which dataset to base a song off of.')
 flags.DEFINE_enum('subset', 'train', ['train', 'valid', 'test'], 'Which subset to grab a song to synthesize from')
 flags.DEFINE_integer('index', 0, 'Index of the input song in the dataset.')

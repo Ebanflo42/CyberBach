@@ -231,7 +231,7 @@ def write_song(model, piano_roll, FLAGS):
     # format the output of the model
     output_tensor, hiddens = model(input_tensor)
     np_output = output_tensor.detach().numpy()
-    binary = (np_output > 0).type(np.uint8)
+    binary = (np_output > 0).astype(np.uint8)
     reformatted = binary.reshape(T1, 88)
 
     # check for too many or too few notes being played
@@ -239,19 +239,19 @@ def write_song(model, piano_roll, FLAGS):
     for t in range(T1):
         if np.sum(reformatted[t]) > FLAGS.max_on_notes:
             threshold = 0
-            while np.sum((np_output[t] > threshold).type(torch.uint8)) > FLAGS.max_on_notes:
+            while np.sum((np_output[t] > threshold).astype(np.uint8)) > FLAGS.max_on_notes:
                 threshold += 1
-            reformatted[t] = (np_output[t] > threshold).type(torch.uint8)
+            reformatted[t] = (np_output[t] > threshold).astype(np.uint8)
         if np.sum(reformatted[t]) < FLAGS.min_on_notes:
             threshold = 0
-            while np.sum((np_output[t] > threshold).type(torch.uint8)) < FLAGS.min_on_notes:
+            while np.sum((np_output[t] > threshold).astype(np.uint8)) < FLAGS.min_on_notes:
                 threshold -= 1
-            reformatted[t] = (np_output[t] > threshold).type(torch.uint8)
+            reformatted[t] = (np_output[t] > threshold).astype(np.uint8)
 
     song[:T1] = reformatted
 
     # the last steps of the model will be the model making predictions off of its own output
-    for t in tqdm(range(T1, T1 + FLAGS.free_steps)):
+    for t in tqdm(range(T1, T)):
 
         # get the last frame of the new song, double the intensity since it is both input and last step
         last_output = torch.tensor(song[t - 1], dtype=torch.float32).unsqueeze(0)
@@ -260,19 +260,19 @@ def write_song(model, piano_roll, FLAGS):
         # use the model to predict the next frame
         new_output, hiddens = model(last_output)
         np_output = new_output.detach().numpy().reshape(88)
-        binary = (new_output > 0).type(np.uint8)
+        binary = (new_output > 0).astype(np.uint8)
 
         # again adjust the threshold if there are too many notes
         if np.sum(binary[t]) > FLAGS.max_on_notes:
             threshold = 0
-            while np.sum((np_output[t] > threshold).type(torch.uint8)) > FLAGS.max_on_notes:
+            while np.sum((np_output[t] > threshold).astype(np.uint8)) > FLAGS.max_on_notes:
                 threshold += 1
-            binary[t] = (np_output[t] > threshold).type(torch.uint8)
+            binary[t] = (np_output[t] > threshold).astype(np.uint8)
         if np.sum(binary[t]) < FLAGS.min_on_notes:
             threshold = 0
-            while np.sum((np_output[t] > threshold).type(torch.uint8)) < FLAGS.min_on_notes:
+            while np.sum((np_output[t] > threshold).astype(np.uint8)) < FLAGS.min_on_notes:
                 threshold -= 1
-            binary[t] = (np_output[t] > threshold).type(torch.uint8)
+            binary[t] = (np_output[t] > threshold).astype(np.uint8)
 
         song[t] = binary
 
