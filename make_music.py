@@ -18,18 +18,24 @@ from utils.midi import to_midi, write_song
 
 FLAGS = flags.FLAGS
 
+# file system
 flags.DEFINE_string('results_path', 'songs', 'Where to store new songs.')
 flags.DEFINE_string('exp_name', '', 'If non-empty acts as a special subdirectory for a set of songs.')
-flags.DEFINE_enum('dataset', 'JSB_Chorales', ['JSB_Chorales', 'Notthingham', 'Piano_midi', 'MuseData'], 'Which dataset to base a song off of.')
+flags.DEFINE_string('song_name', '', 'Optional song name. If empty, random song name will be generated.')
+flags.DEFINE_boolean('use_timidity', False, 'Use timidity to convert the midi file to wav. Fails if timidity is not installed.')
+
+# where to draw input
+flags.DEFINE_enum('dataset', 'JSB_Chorales', ['JSB_Chorales', 'Nottingham', 'Piano_midi', 'MuseData'], 'Which dataset to base a song off of.')
 flags.DEFINE_enum('subset', 'train', ['train', 'valid', 'test'], 'Which subset to grab a song to synthesize from')
 flags.DEFINE_integer('index', 0, 'Index of the input song in the dataset.')
+flags.DEFINE_integer('beat', 0, 'Which beat to start the model on.')
+
+# song synthesis
 flags.DEFINE_string('model_path', '', 'Which model to restore to use to synthesize song. If empty, output will be the original song')
 flags.DEFINE_integer('free_steps', 100, 'How many beats we should continue after the network has been fed the entire song.')
 flags.DEFINE_integer('max_on_notes', 10, 'Maximum number of notes to be played during a beat.')
 flags.DEFINE_integer('min_on_notes', 0, 'Minimum number of notes to be played during a beat.')
-flags.DEFINE_string('song_name', '', 'Optional song name. If empty, random song name will be generated.')
 flags.DEFINE_float('noise_variance', 0, 'Gaussian noise may be added to the model input to knock it out of periodic behavior.')
-flags.DEFINE_boolean('use_timidity', False, 'Use timidity to convert the midi file to wav. Fails if timidity is not installed.')
 
 
 def main(_argv):
@@ -91,5 +97,13 @@ def main(_argv):
 
 
 if __name__ == '__main__':
+
+    names = ['JSB_Chorales', 'Nottingham', 'Piano_midi', 'MuseData']
+    for name in names:
+        avglen = 0
+        matdata = loadmat(f'locuslab_data/{name}.mat')
+        for train_sample in matdata['traindata'][0]:
+            avglen += len(train_sample)
+        print(name, avglen/len(matdata['traindata'][0]))
 
     app.run(main)

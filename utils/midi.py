@@ -221,7 +221,7 @@ def write_song(model, piano_roll, FLAGS):
 
     # first few steps of the song will be the original music
     T1 = len(piano_roll)
-    T = T1 + FLAGS.free_steps
+    T = 2*T1# + FLAGS.free_steps
     song = np.zeros((T, 88), dtype='uint8')
 
     # format the input to the model
@@ -230,49 +230,53 @@ def write_song(model, piano_roll, FLAGS):
 
     # format the output of the model
     output_tensor, hiddens = model(input_tensor)
-    np_output = output_tensor.detach().numpy()
+    np_output = output_tensor.detach().numpy().reshape(T1, 88)
     binary = (np_output > 0).astype(np.uint8)
-    reformatted = binary.reshape(T1, 88)
 
     # check for too many or too few notes being played
     # adjust the threshold for the logits if the number of notes falls outside the desired range
+    '''
     for t in range(T1):
-        if np.sum(reformatted[t]) > FLAGS.max_on_notes:
+        n_notes = np.sum(binary[t])
+        if n_notes > FLAGS.max_on_notes:
             threshold = 0
             while np.sum((np_output[t] > threshold).astype(np.uint8)) > FLAGS.max_on_notes:
                 threshold += 1
-            reformatted[t] = (np_output[t] > threshold).astype(np.uint8)
-        if np.sum(reformatted[t]) < FLAGS.min_on_notes:
+            binary[t] = (np_output[t] > threshold).astype(np.uint8)
+        if n_notes < FLAGS.min_on_notes:
             threshold = 0
             while np.sum((np_output[t] > threshold).astype(np.uint8)) < FLAGS.min_on_notes:
                 threshold -= 1
-            reformatted[t] = (np_output[t] > threshold).astype(np.uint8)
+            binary[t] = (np_output[t] > threshold).astype(np.uint8)
+    '''
 
-    song[:T1] = reformatted
+    song[:T1] = binary
 
     # the last steps of the model will be the model making predictions off of its own output
-    for t in tqdm(range(T1, T)):
+    for t in range(T1, 2*T1):
 
         # get the last frame of the new song, double the intensity since it is both input and last step
         last_output = torch.tensor(song[t - 1], dtype=torch.float32).unsqueeze(0)
-        last_output += FLAGS.noise_variance*torch.randn((1, 1, 88))
+        last_output += FLAGS.noise_variance*torch.randn((1, 88))
+        last_output = last_output.unsqueeze(0)
 
         # use the model to predict the next frame
         new_output, hiddens = model(last_output)
         np_output = new_output.detach().numpy().reshape(88)
-        binary = (new_output > 0).astype(np.uint8)
+        binary = (np_output > 0).astype(np.uint8)
 
         # again adjust the threshold if there are too many notes
-        if np.sum(binary[t]) > FLAGS.max_on_notes:
+        n_notes = np.sum(binary)
+        if n_notes > FLAGS.max_on_notes:
             threshold = 0
-            while np.sum((np_output[t] > threshold).astype(np.uint8)) > FLAGS.max_on_notes:
+            while np.sum((np_output > threshold).astype(np.uint8)) > FLAGS.max_on_notes:
                 threshold += 1
-            binary[t] = (np_output[t] > threshold).astype(np.uint8)
-        if np.sum(binary[t]) < FLAGS.min_on_notes:
+            binary = (np_output > threshold).astype(np.uint8)
+        if n_notes < FLAGS.min_on_notes:
             threshold = 0
-            while np.sum((np_output[t] > threshold).astype(np.uint8)) < FLAGS.min_on_notes:
+            while np.sum((np_output > threshold).astype(np.uint8)) < FLAGS.min_on_notes:
                 threshold -= 1
-            binary[t] = (np_output[t] > threshold).astype(np.uint8)
+            binary = (np_output > threshold).astype(np.uint8)
 
         song[t] = binary
 
