@@ -32,9 +32,20 @@ flags.DEFINE_integer('index', 0, 'Index of the input song in the dataset.')
 # song synthesis
 flags.DEFINE_string('model_path', '', 'Which model to restore to use to synthesize song. If empty, output will be the original song')
 flags.DEFINE_integer('length', 200, 'How many beats the song should last.')
-flags.DEFINE_integer('max_on_notes', 6, 'Maximum number of notes to be played during a beat.')
-flags.DEFINE_integer('min_on_notes', 1, 'Minimum number of notes to be played during a beat.')
-flags.DEFINE_float('noise_variance', 0, 'Gaussian noise may be added to the model input to knock it out of periodic behavior.')
+flags.DEFINE_integer('max_on_notes', 10, 'Maximum number of notes to be played during a beat.')
+flags.DEFINE_integer('min_on_notes', 0, 'Minimum number of notes to be played during a beat.')
+flags.DEFINE_float('noise_variance', 0.05, 'Gaussian noise may be added to the model input to knock it out of periodic behavior.')
+
+
+def make_song_name():
+    try:
+        rw = RandomWords()
+        rws = rw.get_random_words()
+        good_rws = [w for w in rws if '\'' not in w and ' ' not in w]
+        return good_rws[0] + '_' + good_rws[1]
+    except TypeError:
+        print('Warning: `make_song_name` failed. Trying again.')
+        return make_song_name()
 
 
 def main(_argv):
@@ -44,9 +55,7 @@ def main(_argv):
     if FLAGS.song_name != '':
         song_name = FLAGS.song_name
     else:
-        r = RandomWords()
-        rws = r.get_random_words()
-        song_name = rws[0] + '_' + rws[1]
+        song_name = make_song_name()
     print(f'Beginning new song {song_name}.')
     sm = simmanager.SimManager(
         song_name, base_path, write_protect_dirs=False, tee_stdx_to='output.log')

@@ -54,14 +54,14 @@ def initialize(model, flags):
 
         if model.architecture == 'TANH':
             sd = model.state_dict()
-            sd['rnn.weight_hh_l'] = make_limit_cycle_weights(sd['rnn.weight_hh_0'].shape)
+            sd['rnn.weight_hh_l0'] = make_limit_cycle_weights(sd['rnn.weight_hh_l0'].shape)
             model.load_state_dict(sd)
 
         elif model.architecture == 'GRU':
             sd = model.state_dict()
-            hh = sd['rnn.weight_hh_l']
-            lc_weights = make_limit_cycle_weights(hh[2].shape)
-            sd['rnn.weight_hh_l'] = torch.stack([torch.zeros_like(hh[0]), torch.zeros_like(hh[1]), lc_weights])
+            hh = sd['rnn.weight_hh_l0']
+            lc_weights = make_limit_cycle_weights((hh.shape[1], hh.shape[1]))
+            sd['rnn.weight_hh_l0'] = torch.cat([torch.zeros_like(hh[:2*hh.shape[1]]), lc_weights])
             model.load_state_dict(sd)
 
         else:

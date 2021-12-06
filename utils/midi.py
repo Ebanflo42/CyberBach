@@ -224,7 +224,7 @@ def write_song(model, piano_roll, FLAGS):
     # the last steps of the model will be the model making predictions off of its own output
     for t in range(T, T + FLAGS.length):
 
-        # get the last frame of the new song, double the intensity since it is both input and last step
+        # the input to the model for syntehsizing the current beat will be the entirety of the input song + its own prediction
         last_song = torch.tensor(
             song[:t - 1], dtype=torch.float32).unsqueeze(0)
         last_song += FLAGS.noise_variance*torch.randn((1, 88))

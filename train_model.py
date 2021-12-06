@@ -56,11 +56,11 @@ flags.DEFINE_integer(
     'save_every', 1000, 'Save the model at this many training steps.')
 
 # model
-flags.DEFINE_enum('architecture', 'TANH', [
+flags.DEFINE_enum('architecture', 'GRU', [
     'TANH', 'LSTM', 'GRU'], 'Which recurrent architecture to use.')
 flags.DEFINE_integer(
-    'n_rec', 256, 'How many recurrent neurons to use.')
-flags.DEFINE_enum('initialization', 'default', ['default', 'orthogonal', 'limit_cycle'],
+    'n_rec', 400, 'How many recurrent neurons to use.')
+flags.DEFINE_enum('initialization', 'limit_cycle', ['default', 'orthogonal', 'limit_cycle'],
                   'Which initialization to use for the recurrent weight matrices. Default is uniform Xavier. Limit cycles only apply to TANH and GRU')
 flags.DEFINE_string(
     'restore_from', '', 'If non-empty, restore all the previous model from this directory and train it using the new FLAGS.')
