@@ -4,7 +4,5 @@ This repository is for training neural networks and regressive models on the mus
 
 # TODO
 
-## Implement some plotting, particular for predicted vs actual notes
-## Plot phase portraits
 ## See if we can remove the stupid NullContext stuff
 ## Rewrite README

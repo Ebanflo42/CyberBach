@@ -13,7 +13,7 @@ from utils.models import MusicRNN
 from utils.metrics import FrameAccuracy, MaskedBCE
 from utils.data_loader import get_datasets
 from utils.initialization import initialize
-from utils.plotting import plot_note_comparison
+from utils.plotting import plot_note_comparison, plot_phase_portrait
 
 from absl import flags, app
 from datetime import datetime
@@ -24,13 +24,13 @@ FLAGS = flags.FLAGS
 
 # system
 flags.DEFINE_bool(
-    'use_gpu', False, 'Whether or not to use the GPU. Fails if True and CUDA is not available.')
+    'use_gpu', True, 'Whether or not to use the GPU. Fails if True and CUDA is not available.')
 flags.DEFINE_string(
     'exp_name', '', 'If non-empty works as a special sub-directory for the experiment')
 flags.DEFINE_string('results_path', 'models',
                     'Name of the directory to save all results within.')
 flags.DEFINE_integer(
-    'random_seed', -1, 'If not negative 1, set the random seed to this value. Otherwise the random seed will be the current microsecond.')
+    'random_seed', -1, 'If not -1, set the random seed to this value. Otherwise the random seed will be the current microsecond.')
 
 # training
 flags.DEFINE_enum('dataset', 'JSB_Chorales', [
@@ -55,16 +55,17 @@ flags.DEFINE_integer(
     'validate_every', 500, 'Validate the model at this many training steps.')
 flags.DEFINE_integer(
     'save_every', 1000, 'Save the model at this many training steps.')
+flags.DEFINE_boolean('plot', False, 'Plot note comparison and phase portrait every validation step.')
 
 # model
-flags.DEFINE_enum('architecture', 'GRU', [
+flags.DEFINE_enum('architecture', 'TANH', [
     'TANH', 'LSTM', 'GRU'], 'Which recurrent architecture to use.')
 flags.DEFINE_integer(
     'n_rec', 400, 'How many recurrent neurons to use.')
 flags.DEFINE_enum('initialization', 'limit_cycle', ['default', 'orthogonal', 'limit_cycle'],
-                  'Which initialization to use for the recurrent weight matrices. Default is uniform Xavier. Limit cycles only apply to TANH and GRU')
+                  'Which initialization to use for the recurrent weight matrices. Default is uniform Xavier. Limit cycles only apply to TANH and GRU.')
 flags.DEFINE_string(
-    'restore_from', '', 'If non-empty, restore all the previous model from this directory and train it using the new FLAGS.')
+    'restore_from', '', 'If non-empty, restore the previous model from this directory and train it using the new flags.')
 
 
 # this context is used when we are running things on the cpu
@@ -180,7 +181,10 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
                 print(
                     f'  Validation loss: {valid_loss[-1]:.3}\n  Validation accuracy: {100*valid_acc[-1]:.3}%\n')
 
-                plot_note_comparison(sm, output, y, i)
+                if FLAGS.plot:
+                    plot_note_comparison(sm, output, y, i)
+                    if model.architecture in ['TANH', 'GRU']:
+                        plot_phase_portrait(sm, model, i)
 
             if i > 0 and i % FLAGS.save_every == 0:
 

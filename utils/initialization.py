@@ -32,8 +32,9 @@ def make_limit_cycle_weights(shape: torch.Size):
         t = uni.sample()
         if bern.sample == 1:
             t = -t
+        scale = 1 + 0.2*uni.sample()
 
-        mat = torch.tensor([[np.cos(t), np.sin(t)], [-np.sin(t), np.cos(t)]])
+        mat = scale*torch.tensor([[np.cos(t), -np.sin(t)], [np.sin(t), np.cos(t)]])
 
         result[2*i : 2*(i + 1), 2*i : 2*(i + 1)] = mat
 
@@ -55,13 +56,17 @@ def initialize(model, flags):
         if model.architecture == 'TANH':
             sd = model.state_dict()
             sd['rnn.weight_hh_l0'] = make_limit_cycle_weights(sd['rnn.weight_hh_l0'].shape)
+            sd['rnn.bias_hh_l0'] = torch.zeros_like(sd['rnn.bias_hh_l0'])
+            sd['rnn.bias_ih_l0'] = torch.zeros_like(sd['rnn.bias_ih_l0'])
             model.load_state_dict(sd)
 
         elif model.architecture == 'GRU':
             sd = model.state_dict()
             hh = sd['rnn.weight_hh_l0']
             lc_weights = make_limit_cycle_weights((hh.shape[1], hh.shape[1]))
-            sd['rnn.weight_hh_l0'] = torch.cat([torch.zeros_like(hh[:2*hh.shape[1]]), lc_weights])
+            sd['rnn.weight_hh_l0'] = 2*torch.cat([torch.zeros_like(hh[:2*hh.shape[1]]), lc_weights])
+            sd['rnn.bias_hh_l0'] = torch.zeros_like(sd['rnn.bias_hh_l0'])
+            sd['rnn.bias_ih_l0'] = torch.zeros_like(sd['rnn.bias_ih_l0'])
             model.load_state_dict(sd)
 
         else:
