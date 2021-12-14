@@ -13,6 +13,7 @@ from utils.models import MusicRNN
 from utils.metrics import FrameAccuracy, MaskedBCE
 from utils.data_loader import get_datasets
 from utils.initialization import initialize
+from utils.plotting import plot_note_comparison
 
 from absl import flags, app
 from datetime import datetime
@@ -178,6 +179,8 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
 
                 print(
                     f'  Validation loss: {valid_loss[-1]:.3}\n  Validation accuracy: {100*valid_acc[-1]:.3}%\n')
+
+                plot_note_comparison(sm, output, y, i)
 
             if i > 0 and i % FLAGS.save_every == 0:
 

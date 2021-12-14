@@ -220,14 +220,14 @@ def write_song(model, piano_roll, FLAGS):
     T = len(piano_roll)
     song = np.zeros((T + FLAGS.length, 88), dtype=np.uint8)
     song[:T] = piano_roll
+    noise = FLAGS.noise_variance*torch.randn((T + FLAGS.length, 88))
 
     # the last steps of the model will be the model making predictions off of its own output
     for t in range(T, T + FLAGS.length):
 
         # the input to the model for syntehsizing the current beat will be the entirety of the input song + its own prediction
         last_song = torch.tensor(
-            song[:t - 1], dtype=torch.float32).unsqueeze(0)
-        last_song += FLAGS.noise_variance*torch.randn((1, 88))
+            song[:t - 1], dtype=torch.float32).unsqueeze(0) + noise[:t - 1]
 
         # use the model to predict the next frame
         new_output, hiddens = model(last_song)
