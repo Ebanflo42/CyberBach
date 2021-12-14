@@ -32,7 +32,7 @@ To train a GRU with a limit cycle initialization, run:
 python train_model.py --architecture=GRU --initialization=limit_cycle
 ```
 
-If you have a CUDA-capable GPU and CUDA-capable PyTorch installation, you can pass `--use_gpu` to greatly accelerate training.
+If you have a CUDA-capable GPU and CUDA-capable PyTorch installation, you can pass `--use_gpu` to greatly accelerate training. You can also pass the `--plot` flag to see some details of the models prediction and the dynamics of its hidden states.
 
 All flags are documented at the top of each script.
 
@@ -42,7 +42,7 @@ Recurrent neural networks can be trained to predict the next set of notes in pia
 
 There are four classic music datasets in `locuslab_data`, pre-processed from midi to piano roll by locuslab. `cyberbach_models` contains 5 models pre-trained for 10000 iterations on the `JSB_Chorales` (Bach's chorales) dataset; songs which these models synthesized is located in `cyber_bach` songs.
 
-This framework supports 3 architectures: `TANH` (Vanilla), `LSTM`, and `GRU`. The three supported initialization strategies are `default` (Xavier), `orthogonal`, and `limit_cycle`. Limit cycle initialization is an idea stemming from my paper with CATNIP Lab:
+This framework supports 3 architectures: `TANH` (Vanilla), `LSTM`, and `GRU`. The three supported initialization strategies are `default` (Xavier), `orthogonal`, and `limit_cycle`. Limit cycle initialization is an idea for the `TANH` and `GRU` architectures which is introduced in my paper with CATNIP Lab:
 
 P. A. Sokół, I. Jordan, E. Kadile and I. M. Park, "Adjoint Dynamics of Stable Limit Cycle Neural Networks," 2019 53rd Asilomar Conference on Signals, Systems, and Computers, 2019, pp. 884-887, doi: 10.1109/IEEECONF44664.2019.9049080.
 

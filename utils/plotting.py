@@ -1,3 +1,7 @@
+"""
+This script provides some basic visualization utilities.
+"""
+
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -5,6 +9,11 @@ from matplotlib.patches import Rectangle
 from os.path import join as opj
 
 
+# compare model output to the target
+# output logits are thresholded at 0
+# green squares are correct notes
+# red squares are incorrect notes
+# empty squares are missed notes
 def plot_note_comparison(sm, out_logits, targ, plot_i):
 
     # convert to numpy and get the first sample from the batch
@@ -55,6 +64,7 @@ def plot_note_comparison(sm, out_logits, targ, plot_i):
     plt.savefig(opj(sm.paths.results_path, f'note_comparison{plot_i}.png'))
 
 
+# plot the autonomous phase portrait of the first two hidden states of a TANH network or GRU
 def plot_phase_portrait(sm, model, plot_i):
 
     fig = plt.figure()

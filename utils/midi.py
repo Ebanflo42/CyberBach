@@ -1,6 +1,5 @@
 """
-These functions are used for translating between midi and the binary piano roll format,
-as well as synthesizing new music.
+These functions are used for translating between midi and the binary piano roll format, as well as synthesizing new music.
 """
 
 import numpy as np
@@ -10,6 +9,8 @@ import os
 
 from tqdm import tqdm
 from os.path import join as opj
+
+from utils.models import MusicRNN
 
 
 def get_min_max_note(directory: str):
@@ -214,7 +215,13 @@ def to_midi(min_note, piano_roll_song, filename):
 
 
 
-def write_song(model, piano_roll, FLAGS):
+def write_song(model: MusicRNN, piano_roll: np.ndarray, FLAGS):
+    '''
+    :param model: RNN which will be used to generate new music.
+    :param piano_roll: Binary array which will be fed to the network to get it to predict new notes.
+    :param FLAGS: Specifies all parameters of the song generation.
+    :return: New song in binary piano roll format.
+    '''
 
     # the full history of the song
     T = len(piano_roll)

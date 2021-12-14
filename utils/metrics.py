@@ -1,5 +1,5 @@
 """
-Here we define pytorch modules for efficiently computing accuracy and loss.
+The two PyTorch modules here define custom loss functions for training the model and evaluating performance.
 """
 
 import numpy as np
@@ -9,8 +9,6 @@ import torch.nn.functional as F
 
 # see Bay et al 2009 for the definition of frame-level accuracy
 # this module also returns the mean over all sequences
-
-
 class FrameAccuracy(nn.Module):
 
     def __init__(self):

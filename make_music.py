@@ -19,17 +19,17 @@ from utils.midi import to_midi, write_song
 FLAGS = flags.FLAGS
 
 # file system
-flags.DEFINE_string('results_path', 'cyberbach_songs', 'Where to store new songs.')
+flags.DEFINE_string('results_path', 'songs', 'Where to store new songs.')
 flags.DEFINE_string('song_name', '', 'Optional song name. If empty, random song name will be generated.')
-flags.DEFINE_boolean('use_timidity', False, 'Use timidity to convert the midi file to wav. Fails if timidity is not installed.')
+flags.DEFINE_boolean('use_timidity', True, 'Use timidity to convert the midi file to wav. Fails if timidity is not installed.')
 
 # where to draw input
-flags.DEFINE_enum('dataset', 'JSB_Chorales', ['JSB_Chorales', 'Nottingham', 'Piano_midi', 'MuseData'], 'Which dataset to base a song off of.')
+flags.DEFINE_enum('dataset', 'Piano_midi', ['JSB_Chorales', 'Nottingham', 'Piano_midi', 'MuseData'], 'Which dataset to base a song off of.')
 flags.DEFINE_enum('subset', 'train', ['train', 'valid', 'test'], 'Which subset to grab a song to synthesize from')
 flags.DEFINE_integer('index', 0, 'Index of the input song in the dataset.')
 
 # song synthesis
-flags.DEFINE_string('model_path', '', 'Which model to restore to use to synthesize song. If empty, output will be the original song')
+flags.DEFINE_string('model_path', 'cyberbach_models/gru', 'Which model to restore to use to synthesize song. If empty, output will be the original song')
 flags.DEFINE_integer('length', 200, 'How many beats the song should last.')
 flags.DEFINE_integer('max_on_notes', 10, 'Maximum number of notes to be played during a beat.')
 flags.DEFINE_integer('min_on_notes', 0, 'Minimum number of notes to be played during a beat.')

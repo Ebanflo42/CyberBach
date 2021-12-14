@@ -1,10 +1,7 @@
 """
 This module handles the initialization of models.
 
-If readout=None, initialization will always be default
-Ortherwise, it will depend on the architecture and whether it is implemented by me or pytorch.
-
-The way initialization works is that all models will be initialized based on a simpler, pre-trained model, with some tweaks specified by the initializer dictionary. The 'path' entry of the initializer dictionary tells us where the state dictionary of the pre-trained model is.
+Initialization may be `default` (Xavier), `orthogonal`, or `limit_cycle` (only for TANH and GRU).
 """
 
 import numpy as np
@@ -15,8 +12,14 @@ import torch.nn.init as init
 import torch.nn.functional as F
 from torch.distributions import Bernoulli, Uniform
 
+from utils.models import MusicRNN
+
 
 def make_limit_cycle_weights(shape: torch.Size):
+    '''
+    :param shape: Desired shape of the weight matrix, must be square and have dimensions divisible by two.
+    :return: Recurrent weight matrix for TANH recurrent neural network which will give the network the dynamics of a direct sum of limit cycles.
+    '''
 
     if shape[0] != shape[1] or shape[0]%2 == 1:
         raise ValueError("Tried to get block orthogonal matrix of shape {}".format(str(shape)))
@@ -29,9 +32,14 @@ def make_limit_cycle_weights(shape: torch.Size):
 
     for i in range(n):
 
+        # rotation angle
         t = uni.sample()
         if bern.sample == 1:
             t = -t
+
+        # scale factor
+        # at 1, the initialization will be an instance of orthogonal, which has a stable fixed point
+        # by scaling up a bit we come close to bifurcating into a limit cycle
         scale = 1 + 0.2*uni.sample()
 
         mat = scale*torch.tensor([[np.cos(t), -np.sin(t)], [np.sin(t), np.cos(t)]])
@@ -41,17 +49,22 @@ def make_limit_cycle_weights(shape: torch.Size):
     return result
 
 
-def initialize(model, flags):
+def initialize(model: MusicRNN, FLAGS):
+    '''
+    :param model: Model to be initialized
+    :param FLAGS: Flags for the experiment. Determines which initialization to use.
+    Initialize the given model to the desired initialization.
+    '''
 
-    if flags.initialization == 'default':
+    if FLAGS.initialization == 'default':
         pass
 
-    elif flags.initialization == 'orthogonal':
+    elif FLAGS.initialization == 'orthogonal':
         for param in model.rnn.parameters():
             if len(param.shape) > 1:
                 init.orthogonal_(param)
 
-    elif flags.initialization == 'limit_cycle':
+    elif FLAGS.initialization == 'limit_cycle':
 
         if model.architecture == 'TANH':
             sd = model.state_dict()
@@ -73,4 +86,4 @@ def initialize(model, flags):
             raise ValueError(f'Architecture {model.architecture} does not support limit cycle initialiation.')
 
     else:
-        raise ValueError(f'Initialization {flags.initialization} not recognized.')
+        raise ValueError(f'Initialization {FLAGS.initialization} not recognized.')

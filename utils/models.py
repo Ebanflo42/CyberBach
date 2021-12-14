@@ -1,5 +1,5 @@
 """
-This module handles the readout we put on top of models.
+This script defines an RNN object which is specific to our application.
 """
 
 import numpy as np

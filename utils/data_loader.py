@@ -1,5 +1,7 @@
 """
-This module provides a function which returns a pytorch DataLoader for a desired music database.
+I use `prefetch_generator`s because they are quick and easy to construct and are inter-operable with PyTorch, TensorFlow, SciKit-learn, or whatever you like.
+
+This script provides utilities for going from a dataset name to iterators for the training, validations, and testing data.
 """
 
 import torch
@@ -29,6 +31,7 @@ def get_max_seq_len(train_set, valid_set, test_set):
     return seqlen
 
 
+# pad sequence with zeros and return the corresponding mask
 def pad_seq(seq, seqlen):
     result = np.concatenate((seq, np.zeros((seqlen - len(seq), 88), dtype=seq.dtype)), axis=0)
     mask = np.concatenate((np.ones(len(seq) - 1, dtype=np.float32), np.zeros(seqlen - len(seq), dtype=np.float32)))
@@ -95,9 +98,9 @@ def create_training_iterator(train_set, batch_size, seqlen):
     return train_iter()
 
 
-def get_datasets(flags):
+def get_datasets(FLAGS):
 
-    matdata = loadmat(f'locuslab_data/{flags.dataset}.mat')
+    matdata = loadmat(f'locuslab_data/{FLAGS.dataset}.mat')
 
     train_set = matdata['traindata'][0]
     valid_set = matdata['validdata'][0]
@@ -105,8 +108,8 @@ def get_datasets(flags):
 
     seqlen = get_max_seq_len(train_set, valid_set, test_set)
 
-    train_iter = create_training_iterator(train_set, flags.batch_size, seqlen)
-    valid_iter = create_validation_iterator(valid_set, flags.batch_size, seqlen)
-    test_iter = create_testing_iterator(test_set, flags.batch_size, seqlen)
+    train_iter = create_training_iterator(train_set, FLAGS.batch_size, seqlen)
+    valid_iter = create_validation_iterator(valid_set, FLAGS.batch_size, seqlen)
+    test_iter = create_testing_iterator(test_set, FLAGS.batch_size, seqlen)
 
     return train_iter, valid_iter, test_iter
