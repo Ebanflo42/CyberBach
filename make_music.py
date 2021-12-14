@@ -20,7 +20,6 @@ FLAGS = flags.FLAGS
 
 # file system
 flags.DEFINE_string('results_path', 'songs', 'Where to store new songs.')
-flags.DEFINE_string('exp_name', '', 'If non-empty acts as a special subdirectory for a set of songs.')
 flags.DEFINE_string('song_name', '', 'Optional song name. If empty, random song name will be generated.')
 flags.DEFINE_boolean('use_timidity', False, 'Use timidity to convert the midi file to wav. Fails if timidity is not installed.')
 
@@ -51,14 +50,13 @@ def make_song_name():
 def main(_argv):
 
     # construct simulation manager
-    base_path = opj(FLAGS.results_path, FLAGS.exp_name)
     if FLAGS.song_name != '':
         song_name = FLAGS.song_name
     else:
         song_name = make_song_name()
     print(f'Beginning new song {song_name}.')
     sm = simmanager.SimManager(
-        song_name, base_path, write_protect_dirs=False, tee_stdx_to='output.log')
+        song_name, FLAGS.results_path, write_protect_dirs=False, tee_stdx_to='output.log')
 
     with sm:
 

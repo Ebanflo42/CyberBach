@@ -2,6 +2,7 @@ __pycache__
 *.wav
 *.mp3
 *.npy
+*.sh
 .vscode
 results
 models

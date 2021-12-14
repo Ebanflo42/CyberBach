@@ -24,9 +24,9 @@ FLAGS = flags.FLAGS
 
 # system
 flags.DEFINE_bool(
-    'use_gpu', True, 'Whether or not to use the GPU. Fails if True and CUDA is not available.')
+    'use_gpu', False, 'Whether or not to use the GPU. Fails if True and CUDA is not available.')
 flags.DEFINE_string(
-    'exp_name', '', 'If non-empty works as a special sub-directory for the experiment')
+    'model_name', '', 'If non-empty works as a special name for this model.')
 flags.DEFINE_string('results_path', 'models',
                     'Name of the directory to save all results within.')
 flags.DEFINE_integer(
@@ -68,26 +68,12 @@ flags.DEFINE_string(
     'restore_from', '', 'If non-empty, restore the previous model from this directory and train it using the new flags.')
 
 
-# this context is used when we are running things on the cpu
-class NullContext(object):
-    def __init__(self):
-        pass
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, type, value, traceback):
-        pass
-
-
 def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
 
     # if we are on cuda we construct the device and run everything on it
-    cuda_device = NullContext()
     device = torch.device('cpu')
     if FLAGS.use_gpu:
         dev_name = 'cuda:0'
-        cuda_device = torch.cuda.device(dev_name)
         device = torch.device(dev_name)
         model = model.to(device)
 
@@ -98,33 +84,69 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
     valid_loss = []
     valid_acc = []
 
-    with cuda_device:
+    # construct the optimizer
+    if FLAGS.optimizer == 'SGD':
+        optimizer = optim.SGD(model.parameters(), lr=FLAGS.lr)
+    elif FLAGS.optimizer == 'Adam':
+        optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr)
+    elif FLAGS.optimizer == 'RMSprop':
+        optimizer = optim.RMSprop(model.parameters(), lr=FLAGS.lr)
+    elif FLAGS.optimizer == 'Adagrad':
+        optimizer = optim.Adagrad(model.parameters(), lr=FLAGS.lr)
+    else:
+        raise ValueError(f'Optimizer {FLAGS.optimizier} not recognized.')
 
-        # construct the optimizer
-        if FLAGS.optimizer == 'SGD':
-            optimizer = optim.SGD(model.parameters(), lr=FLAGS.lr)
-        elif FLAGS.optimizer == 'Adam':
-            optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr)
-        elif FLAGS.optimizer == 'RMSprop':
-            optimizer = optim.RMSprop(model.parameters(), lr=FLAGS.lr)
-        elif FLAGS.optimizer == 'Adagrad':
-            optimizer = optim.Adagrad(model.parameters(), lr=FLAGS.lr)
-        else:
-            raise ValueError(f'Optimizer {FLAGS.optimizier} not recognized.')
+    # learning rate decay
+    scheduler = None
+    scheduler = optim.lr_scheduler.LambdaLR(
+        optimizer, lambda epoch: FLAGS.lr_decay**(epoch//FLAGS.decay_every))
+
+    acc_fcn = FrameAccuracy()
+    loss_fcn = MaskedBCE()
+
+    # begin training loop
+    for i in range(FLAGS.n_steps):
+
+        # get next training sample
+        x, y, mask = next(train_iter)
+        x, y, mask = x.to(device), y.to(device), mask.to(device)
+
+        # forward pass
+        output, hidden = model(x)
+
+        # binary cross entropy
+        bce_loss = loss_fcn(output, y, mask)
+
+        # weight regularization
+        l2_reg = torch.tensor(0, dtype=torch.float32, device=device)
+        for param in model.parameters():
+            l2_reg += FLAGS.reg_coeff*torch.norm(param)
+
+        # backward pass and optimization step
+        loss = bce_loss + l2_reg
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
         # learning rate decay
-        scheduler = None
-        scheduler = optim.lr_scheduler.LambdaLR(
-            optimizer, lambda epoch: FLAGS.lr_decay**(epoch//FLAGS.decay_every))
+        scheduler.step()
 
-        acc_fcn = FrameAccuracy()
-        loss_fcn = MaskedBCE()
+        # compute accuracy
+        acc = acc_fcn(output, y, mask)
 
-        # begin training loop
-        for i in range(FLAGS.n_steps):
+        # append metrics
+        train_loss.append(bce_loss.cpu().item())
+        train_acc.append(acc.cpu().item())
+        train_reg.append(l2_reg.cpu().item())
 
-            # get next training sample
-            x, y, mask = next(train_iter)
+        if i > 0 and i % FLAGS.validate_every == 0:
+
+            timestamp = datetime.now().strftime('%H:%M:%S')
+            print(
+                f'{timestamp} Validating {sm.sim_name} at iteration {i}.\n  Training loss: {train_loss[-1]:.3}\n  Training accuracy: {100*train_acc[-1]:.3}%\n  L2 regularization: {train_reg[-1]:.3}')
+
+            # get next validation sample
+            x, y, mask = next(valid_iter)
             x, y, mask = x.to(device), y.to(device), mask.to(device)
 
             # forward pass
@@ -133,126 +155,90 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
             # binary cross entropy
             bce_loss = loss_fcn(output, y, mask)
 
-            # weight regularization
-            l2_reg = torch.tensor(0, dtype=torch.float32, device=device)
-            for param in model.parameters():
-                l2_reg += FLAGS.reg_coeff*torch.norm(param)
-
-            # backward pass and optimization step
-            loss = bce_loss + l2_reg
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-
-            # learning rate decay
-            scheduler.step()
-
             # compute accuracy
             acc = acc_fcn(output, y, mask)
 
             # append metrics
-            train_loss.append(bce_loss.cpu().item())
-            train_acc.append(acc.cpu().item())
-            train_reg.append(l2_reg.cpu().item())
+            valid_loss.append(bce_loss.cpu().item())
+            valid_acc.append(acc.cpu().item())
 
-            if i > 0 and i % FLAGS.validate_every == 0:
+            print(
+                f'  Validation loss: {valid_loss[-1]:.3}\n  Validation accuracy: {100*valid_acc[-1]:.3}%\n')
 
-                timestamp = datetime.now().strftime('%H:%M:%S')
-                print(
-                    f'{timestamp} Validating {sm.sim_name} at iteration {i}.\n  Training loss: {train_loss[-1]:.3}\n  Training accuracy: {100*train_acc[-1]:.3}%\n  L2 regularization: {train_reg[-1]:.3}')
+            if FLAGS.plot:
+                plot_note_comparison(sm, output, y, i)
+                if model.architecture in ['TANH', 'GRU']:
+                    plot_phase_portrait(sm, model, i)
 
-                # get next validation sample
-                x, y, mask = next(valid_iter)
-                x, y, mask = x.to(device), y.to(device), mask.to(device)
+        if i > 0 and i % FLAGS.save_every == 0:
 
-                # forward pass
-                output, hidden = model(x)
+            timestamp = datetime.now().strftime('%H:%M:%S')
+            print(f'{timestamp} Saving {sm.sim_name} at iteration {i}.\n')
 
-                # binary cross entropy
-                bce_loss = loss_fcn(output, y, mask)
+            np.save(opj(sm.paths.results_path, 'training_loss'), train_loss)
+            np.save(opj(sm.paths.results_path,
+                    'training_accuracy'), train_acc)
+            np.save(opj(sm.paths.results_path,
+                    'training_regularization'), train_reg)
 
-                # compute accuracy
-                acc = acc_fcn(output, y, mask)
+            np.save(opj(sm.paths.results_path, 'validation_loss'), valid_loss)
+            np.save(opj(sm.paths.results_path,
+                    'validation_accuracy'), valid_acc)
 
-                # append metrics
-                valid_loss.append(bce_loss.cpu().item())
-                valid_acc.append(acc.cpu().item())
+            torch.save(model.state_dict(), opj(
+                sm.paths.results_path, 'model_checkpoint.pt'))
 
-                print(
-                    f'  Validation loss: {valid_loss[-1]:.3}\n  Validation accuracy: {100*valid_acc[-1]:.3}%\n')
+    timestamp = datetime.now().strftime('%H:%M:%S')
+    print(f'{timestamp} Finished training. Entering testing phase.')
 
-                if FLAGS.plot:
-                    plot_note_comparison(sm, output, y, i)
-                    if model.architecture in ['TANH', 'GRU']:
-                        plot_phase_portrait(sm, model, i)
+    test_loss = []
+    test_acc = []
+    tot_test_samples = 0
 
-            if i > 0 and i % FLAGS.save_every == 0:
+    # loop through entire testing set
+    for x, y, mask in test_iter:
 
-                timestamp = datetime.now().strftime('%H:%M:%S')
-                print(f'{timestamp} Saving {sm.sim_name} at iteration {i}.\n')
+        x, y, mask = x.to(device), y.to(device), mask.to(device)
 
-                np.save(opj(sm.paths.results_path, 'training_loss'), train_loss)
-                np.save(opj(sm.paths.results_path,
-                        'training_accuracy'), train_acc)
-                np.save(opj(sm.paths.results_path,
-                        'training_regularization'), train_reg)
+        output, hidden = model(x)
 
-                np.save(opj(sm.paths.results_path, 'validation_loss'), valid_loss)
-                np.save(opj(sm.paths.results_path,
-                        'validation_accuracy'), valid_acc)
+        bce_loss = loss_fcn(output, y, mask).cpu().item()
+        acc = acc_fcn(output, y, mask).cpu().item()
 
-                torch.save(model.state_dict(), opj(
-                    sm.paths.results_path, 'model_checkpoint.pt'))
+        batch_size = x.shape[0]
+        tot_test_samples += batch_size
+        test_loss.append(batch_size*bce_loss)
+        test_acc.append(batch_size*acc)
 
-        timestamp = datetime.now().strftime('%H:%M:%S')
-        print(f'{timestamp} Finished training. Entering testing phase.')
+    final_test_loss = np.sum(test_loss)/tot_test_samples
+    final_test_acc = np.sum(test_acc)/tot_test_samples
+    print(
+        f'  Testing loss: {final_test_loss:.3}\n  Testing accuracy: {100*final_test_acc:.3}%')
 
-        test_loss = []
-        test_acc = []
-        tot_test_samples = 0
-
-        # loop through entire testing set
-        for x, y, mask in test_iter:
-
-            x, y, mask = x.to(device), y.to(device), mask.to(device)
-
-            output, hidden = model(x)
-
-            bce_loss = loss_fcn(output, y, mask).cpu().item()
-            acc = acc_fcn(output, y, mask).cpu().item()
-
-            batch_size = x.shape[0]
-            tot_test_samples += batch_size
-            test_loss.append(batch_size*bce_loss)
-            test_acc.append(batch_size*acc)
-
-        final_test_loss = np.sum(test_loss)/tot_test_samples
-        final_test_acc = np.sum(test_acc)/tot_test_samples
-        print(
-            f'  Testing loss: {final_test_loss:.3}\n  Testing accuracy: {100*final_test_acc:.3}%')
-
-        print(f'Final save of.')
-        np.save(opj(sm.paths.results_path, 'testing_loss'), final_test_loss)
-        np.save(opj(sm.paths.results_path, 'testing_accuracy'), final_test_acc)
-        torch.save(model.state_dict(), opj(
-            sm.paths.results_path, 'model_checkpoint.pt'))
-        date = datetime.now().strftime('%d-%m-%Y')
-        timestamp = datetime.now().strftime('%H:%M:%S')
-        print(f'Training {sm.sim_name} ended on {date} at {timestamp}.')
+    print(f'Final save of.')
+    np.save(opj(sm.paths.results_path, 'testing_loss'), final_test_loss)
+    np.save(opj(sm.paths.results_path, 'testing_accuracy'), final_test_acc)
+    torch.save(model.state_dict(), opj(
+        sm.paths.results_path, 'model_checkpoint.pt'))
+    date = datetime.now().strftime('%d-%m-%Y')
+    timestamp = datetime.now().strftime('%H:%M:%S')
+    print(f'Training {sm.sim_name} ended on {date} at {timestamp}.')
 
 
 def main(_argv):
 
     # construct simulation manager
-    base_path = opj(FLAGS.results_path, FLAGS.exp_name)
-    identifier = ''.join(random.choice(
-        string.ascii_lowercase + string.digits) for _ in range(4))
-    sim_name = 'model_{}'.format(identifier)
+    if FLAGS.model_name == '':
+        identifier = ''.join(random.choice(
+            string.ascii_lowercase + string.digits) for _ in range(4))
+        sim_name = 'model_{}'.format(identifier)
+    else:
+        sim_name = FLAGS.model_name
     date = datetime.now().strftime('%d-%m-%Y')
     timestamp = datetime.now().strftime('%H:%M:%S')
     print(f'\nBeginning to train {sim_name} on {date} at {timestamp}.\n')
     sm = simmanager.SimManager(
-        sim_name, base_path, write_protect_dirs=False, tee_stdx_to='output.log')
+        sim_name, FLAGS.results_path, write_protect_dirs=False, tee_stdx_to='output.log')
 
     with sm:
 
