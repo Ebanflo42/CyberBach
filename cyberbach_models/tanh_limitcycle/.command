@@ -1,0 +1,1 @@
+train_model.py --use_gpu --plot --results_path=cyberbach_models --model_name=tanh_limitcycle --initialization=limit_cycle

@@ -27,7 +27,7 @@ flags.DEFINE_bool(
     'use_gpu', False, 'Whether or not to use the GPU. Fails if True and CUDA is not available.')
 flags.DEFINE_string(
     'model_name', '', 'If non-empty works as a special name for this model.')
-flags.DEFINE_string('results_path', 'models',
+flags.DEFINE_string('results_path', 'cyberbach_models',
                     'Name of the directory to save all results within.')
 flags.DEFINE_integer(
     'random_seed', -1, 'If not -1, set the random seed to this value. Otherwise the random seed will be the current microsecond.')
@@ -62,7 +62,7 @@ flags.DEFINE_enum('architecture', 'TANH', [
     'TANH', 'LSTM', 'GRU'], 'Which recurrent architecture to use.')
 flags.DEFINE_integer(
     'n_rec', 400, 'How many recurrent neurons to use.')
-flags.DEFINE_enum('initialization', 'limit_cycle', ['default', 'orthogonal', 'limit_cycle'],
+flags.DEFINE_enum('initialization', 'default', ['default', 'orthogonal', 'limit_cycle'],
                   'Which initialization to use for the recurrent weight matrices. Default is uniform Xavier. Limit cycles only apply to TANH and GRU.')
 flags.DEFINE_string(
     'restore_from', '', 'If non-empty, restore the previous model from this directory and train it using the new flags.')

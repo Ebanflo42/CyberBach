@@ -1,0 +1,156 @@
+18:18:11 Validating tanh_limitcycle at iteration 500.
+  Training loss: 9.66
+  Training accuracy: 16.8%
+  L2 regularization: 0.00608
+  Validation loss: 11.4
+  Validation accuracy: 16.9%
+
+18:18:17 Validating tanh_limitcycle at iteration 1000.
+  Training loss: 8.45
+  Training accuracy: 18.8%
+  L2 regularization: 0.00741
+  Validation loss: 12.4
+  Validation accuracy: 17.3%
+
+18:18:18 Saving tanh_limitcycle at iteration 1000.
+
+18:18:23 Validating tanh_limitcycle at iteration 1500.
+  Training loss: 7.39
+  Training accuracy: 20.0%
+  L2 regularization: 0.00819
+  Validation loss: 13.6
+  Validation accuracy: 18.4%
+
+18:18:29 Validating tanh_limitcycle at iteration 2000.
+  Training loss: 8.21
+  Training accuracy: 19.8%
+  L2 regularization: 0.00881
+  Validation loss: 13.5
+  Validation accuracy: 18.2%
+
+18:18:30 Saving tanh_limitcycle at iteration 2000.
+
+18:18:35 Validating tanh_limitcycle at iteration 2500.
+  Training loss: 6.96
+  Training accuracy: 20.6%
+  L2 regularization: 0.00918
+  Validation loss: 13.7
+  Validation accuracy: 18.6%
+
+18:18:41 Validating tanh_limitcycle at iteration 3000.
+  Training loss: 6.65
+  Training accuracy: 20.8%
+  L2 regularization: 0.00959
+  Validation loss: 14.6
+  Validation accuracy: 18.6%
+
+18:18:42 Saving tanh_limitcycle at iteration 3000.
+
+18:18:47 Validating tanh_limitcycle at iteration 3500.
+  Training loss: 9.27
+  Training accuracy: 19.4%
+  L2 regularization: 0.00981
+  Validation loss: 13.3
+  Validation accuracy: 18.3%
+
+18:18:53 Validating tanh_limitcycle at iteration 4000.
+  Training loss: 6.42
+  Training accuracy: 21.1%
+  L2 regularization: 0.0101
+  Validation loss: 14.8
+  Validation accuracy: 18.5%
+
+18:18:54 Saving tanh_limitcycle at iteration 4000.
+
+18:18:59 Validating tanh_limitcycle at iteration 4500.
+  Training loss: 6.41
+  Training accuracy: 21.5%
+  L2 regularization: 0.0103
+  Validation loss: 15.5
+  Validation accuracy: 19.0%
+
+18:19:04 Validating tanh_limitcycle at iteration 5000.
+  Training loss: 6.24
+  Training accuracy: 20.9%
+  L2 regularization: 0.0105
+  Validation loss: 15.0
+  Validation accuracy: 18.6%
+
+18:19:06 Saving tanh_limitcycle at iteration 5000.
+
+18:19:10 Validating tanh_limitcycle at iteration 5500.
+  Training loss: 6.37
+  Training accuracy: 20.9%
+  L2 regularization: 0.0106
+  Validation loss: 14.9
+  Validation accuracy: 18.9%
+
+18:19:16 Validating tanh_limitcycle at iteration 6000.
+  Training loss: 6.28
+  Training accuracy: 21.5%
+  L2 regularization: 0.0109
+  Validation loss: 16.0
+  Validation accuracy: 18.5%
+
+18:19:17 Saving tanh_limitcycle at iteration 6000.
+
+18:19:22 Validating tanh_limitcycle at iteration 6500.
+  Training loss: 8.75
+  Training accuracy: 19.1%
+  L2 regularization: 0.0109
+  Validation loss: 12.6
+  Validation accuracy: 18.1%
+
+18:19:28 Validating tanh_limitcycle at iteration 7000.
+  Training loss: 7.81
+  Training accuracy: 20.5%
+  L2 regularization: 0.0111
+  Validation loss: 14.9
+  Validation accuracy: 18.4%
+
+18:19:29 Saving tanh_limitcycle at iteration 7000.
+
+18:19:34 Validating tanh_limitcycle at iteration 7500.
+  Training loss: 7.14
+  Training accuracy: 20.9%
+  L2 regularization: 0.0114
+  Validation loss: 14.0
+  Validation accuracy: 19.2%
+
+18:19:40 Validating tanh_limitcycle at iteration 8000.
+  Training loss: 7.06
+  Training accuracy: 21.9%
+  L2 regularization: 0.0116
+  Validation loss: 16.2
+  Validation accuracy: 18.6%
+
+18:19:41 Saving tanh_limitcycle at iteration 8000.
+
+18:19:46 Validating tanh_limitcycle at iteration 8500.
+  Training loss: 6.59
+  Training accuracy: 21.8%
+  L2 regularization: 0.0118
+  Validation loss: 14.4
+  Validation accuracy: 19.5%
+
+18:19:51 Validating tanh_limitcycle at iteration 9000.
+  Training loss: 6.41
+  Training accuracy: 22.4%
+  L2 regularization: 0.012
+  Validation loss: 16.9
+  Validation accuracy: 18.6%
+
+18:19:53 Saving tanh_limitcycle at iteration 9000.
+
+18:19:58 Validating tanh_limitcycle at iteration 9500.
+  Training loss: 6.67
+  Training accuracy: 21.8%
+  L2 regularization: 0.0121
+  Validation loss: 14.3
+  Validation accuracy: 19.8%
+
+18:20:03 Finished training. Entering testing phase.
+  Testing loss: 15.8
+  Testing accuracy: 19.7%
+Final save of.
+Training tanh_limitcycle ended on 14-12-2021 at 18:20:03.

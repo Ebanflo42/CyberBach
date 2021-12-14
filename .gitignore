@@ -1,9 +1,7 @@
 __pycache__
-*.wav
-*.mp3
 *.npy
 *.sh
+*.png
 .vscode
-results
 models
 songs

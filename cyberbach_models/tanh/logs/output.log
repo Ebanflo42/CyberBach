@@ -1,0 +1,156 @@
+18:15:43 Validating tanh at iteration 500.
+  Training loss: 10.7
+  Training accuracy: 14.0%
+  L2 regularization: 0.00504
+  Validation loss: 10.7
+  Validation accuracy: 14.8%
+
+18:15:49 Validating tanh at iteration 1000.
+  Training loss: 9.22
+  Training accuracy: 17.0%
+  L2 regularization: 0.00699
+  Validation loss: 11.5
+  Validation accuracy: 15.1%
+
+18:15:50 Saving tanh at iteration 1000.
+
+18:15:55 Validating tanh at iteration 1500.
+  Training loss: 8.1
+  Training accuracy: 18.2%
+  L2 regularization: 0.00829
+  Validation loss: 12.5
+  Validation accuracy: 18.1%
+
+18:16:00 Validating tanh at iteration 2000.
+  Training loss: 7.26
+  Training accuracy: 19.7%
+  L2 regularization: 0.00938
+  Validation loss: 13.1
+  Validation accuracy: 16.9%
+
+18:16:02 Saving tanh at iteration 2000.
+
+18:16:06 Validating tanh at iteration 2500.
+  Training loss: 6.86
+  Training accuracy: 20.3%
+  L2 regularization: 0.0102
+  Validation loss: 14.4
+  Validation accuracy: 19.2%
+
+18:16:12 Validating tanh at iteration 3000.
+  Training loss: 6.59
+  Training accuracy: 21.3%
+  L2 regularization: 0.0108
+  Validation loss: 14.9
+  Validation accuracy: 17.9%
+
+18:16:13 Saving tanh at iteration 3000.
+
+18:16:18 Validating tanh at iteration 3500.
+  Training loss: 6.19
+  Training accuracy: 21.6%
+  L2 regularization: 0.0113
+  Validation loss: 15.9
+  Validation accuracy: 19.7%
+
+18:16:24 Validating tanh at iteration 4000.
+  Training loss: 6.3
+  Training accuracy: 22.3%
+  L2 regularization: 0.0117
+  Validation loss: 16.2
+  Validation accuracy: 18.4%
+
+18:16:25 Saving tanh at iteration 4000.
+
+18:16:30 Validating tanh at iteration 4500.
+  Training loss: 6.03
+  Training accuracy: 22.5%
+  L2 regularization: 0.012
+  Validation loss: 17.0
+  Validation accuracy: 20.1%
+
+18:16:36 Validating tanh at iteration 5000.
+  Training loss: 6.01
+  Training accuracy: 22.7%
+  L2 regularization: 0.0123
+  Validation loss: 17.1
+  Validation accuracy: 18.9%
+
+18:16:37 Saving tanh at iteration 5000.
+
+18:16:42 Validating tanh at iteration 5500.
+  Training loss: 5.86
+  Training accuracy: 23.0%
+  L2 regularization: 0.0125
+  Validation loss: 17.7
+  Validation accuracy: 20.4%
+
+18:16:47 Validating tanh at iteration 6000.
+  Training loss: 5.98
+  Training accuracy: 23.4%
+  L2 regularization: 0.0127
+  Validation loss: 17.7
+  Validation accuracy: 19.1%
+
+18:16:49 Saving tanh at iteration 6000.
+
+18:16:53 Validating tanh at iteration 6500.
+  Training loss: 5.79
+  Training accuracy: 23.1%
+  L2 regularization: 0.0129
+  Validation loss: 18.2
+  Validation accuracy: 20.6%
+
+18:16:59 Validating tanh at iteration 7000.
+  Training loss: 5.91
+  Training accuracy: 23.8%
+  L2 regularization: 0.0131
+  Validation loss: 18.2
+  Validation accuracy: 19.3%
+
+18:17:01 Saving tanh at iteration 7000.
+
+18:17:05 Validating tanh at iteration 7500.
+  Training loss: 6.26
+  Training accuracy: 23.8%
+  L2 regularization: 0.0133
+  Validation loss: 18.8
+  Validation accuracy: 20.8%
+
+18:17:11 Validating tanh at iteration 8000.
+  Training loss: 5.77
+  Training accuracy: 23.7%
+  L2 regularization: 0.0134
+  Validation loss: 18.8
+  Validation accuracy: 19.5%
+
+18:17:12 Saving tanh at iteration 8000.
+
+18:17:17 Validating tanh at iteration 8500.
+  Training loss: 5.74
+  Training accuracy: 23.9%
+  L2 regularization: 0.0136
+  Validation loss: 19.2
+  Validation accuracy: 20.9%
+
+18:17:23 Validating tanh at iteration 9000.
+  Training loss: 5.79
+  Training accuracy: 24.4%
+  L2 regularization: 0.0137
+  Validation loss: 19.0
+  Validation accuracy: 19.6%
+
+18:17:24 Saving tanh at iteration 9000.
+
+18:17:29 Validating tanh at iteration 9500.
+  Training loss: 5.68
+  Training accuracy: 23.7%
+  L2 regularization: 0.0138
+  Validation loss: 19.6
+  Validation accuracy: 20.9%
+
+18:17:35 Finished training. Entering testing phase.
+  Testing loss: 19.9
+  Testing accuracy: 20.6%
+Final save of.
+Training tanh ended on 14-12-2021 at 18:17:35.

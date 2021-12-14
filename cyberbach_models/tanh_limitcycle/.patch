@@ -1,0 +1,73 @@
+/
+diff --git a/.gitignore b/.gitignore
+index 5695e29..fc2b1ce 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -6,4 +6,6 @@ __pycache__
+ .vscode
+ results
+ models
+-songs
+\ No newline at end of file
++songs
++cyberbach_models
++cyberbach_songs
+\ No newline at end of file
+diff --git a/README.md b/README.md
+index 457a2f4..6f39f59 100644
+--- a/README.md
++++ b/README.md
+@@ -1,8 +1,11 @@
+ # CyberBach
+ 
+-This repository is for training neural networks and regressive models on the music datasets from "Modeling Temporal Dependencies in High-Dimensional Sequences: Application to Polyphonic Music Generation and Transcription" by Boulanger-Lewandowski et al, appearing in ICML 2012.
++Training machines to make music!
+ 
+-# TODO
++## Usage
+ 
+-## See if we can remove the stupid NullContext stuff
+-## Rewrite README
+\ No newline at end of file
++Assuming you have cloned the repository and have a working installation of `conda` run
++
++```
++conda env create -f environment.yml
++```
+\ No newline at end of file
+diff --git a/make_music.py b/make_music.py
+index 8f21522..8b412a4 100644
+--- a/make_music.py
++++ b/make_music.py
+@@ -19,7 +19,7 @@ from utils.midi import to_midi, write_song
+ FLAGS = flags.FLAGS
+ 
+ # file system
+-flags.DEFINE_string('results_path', 'songs', 'Where to store new songs.')
++flags.DEFINE_string('results_path', 'cyberbach_songs', 'Where to store new songs.')
+ flags.DEFINE_string('song_name', '', 'Optional song name. If empty, random song name will be generated.')
+ flags.DEFINE_boolean('use_timidity', False, 'Use timidity to convert the midi file to wav. Fails if timidity is not installed.')
+ 
+diff --git a/train_model.py b/train_model.py
+index d5ab76e..a47c6c2 100644
+--- a/train_model.py
++++ b/train_model.py
+@@ -27,7 +27,7 @@ flags.DEFINE_bool(
+     'use_gpu', False, 'Whether or not to use the GPU. Fails if True and CUDA is not available.')
+ flags.DEFINE_string(
+     'model_name', '', 'If non-empty works as a special name for this model.')
+-flags.DEFINE_string('results_path', 'models',
++flags.DEFINE_string('results_path', 'cyberbach_models',
+                     'Name of the directory to save all results within.')
+ flags.DEFINE_integer(
+     'random_seed', -1, 'If not -1, set the random seed to this value. Otherwise the random seed will be the current microsecond.')
+@@ -62,7 +62,7 @@ flags.DEFINE_enum('architecture', 'TANH', [
+     'TANH', 'LSTM', 'GRU'], 'Which recurrent architecture to use.')
+ flags.DEFINE_integer(
+     'n_rec', 400, 'How many recurrent neurons to use.')
+-flags.DEFINE_enum('initialization', 'limit_cycle', ['default', 'orthogonal', 'limit_cycle'],
++flags.DEFINE_enum('initialization', 'default', ['default', 'orthogonal', 'limit_cycle'],
+                   'Which initialization to use for the recurrent weight matrices. Default is uniform Xavier. Limit cycles only apply to TANH and GRU.')
+ flags.DEFINE_string(
+     'restore_from', '', 'If non-empty, restore the previous model from this directory and train it using the new flags.')
+----8<----8<----8<----8<----

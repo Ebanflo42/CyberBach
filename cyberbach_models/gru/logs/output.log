@@ -1,0 +1,156 @@
+18:20:38 Validating gru at iteration 500.
+  Training loss: 10.3
+  Training accuracy: 15.8%
+  L2 regularization: 0.00872
+  Validation loss: 10.6
+  Validation accuracy: 16.0%
+
+18:20:44 Validating gru at iteration 1000.
+  Training loss: 9.51
+  Training accuracy: 17.6%
+  L2 regularization: 0.0126
+  Validation loss: 11.0
+  Validation accuracy: 16.8%
+
+18:20:46 Saving gru at iteration 1000.
+
+18:20:50 Validating gru at iteration 1500.
+  Training loss: 8.16
+  Training accuracy: 19.6%
+  L2 regularization: 0.0154
+  Validation loss: 11.6
+  Validation accuracy: 18.7%
+
+18:20:56 Validating gru at iteration 2000.
+  Training loss: 7.47
+  Training accuracy: 20.6%
+  L2 regularization: 0.0173
+  Validation loss: 12.8
+  Validation accuracy: 18.4%
+
+18:20:58 Saving gru at iteration 2000.
+
+18:21:03 Validating gru at iteration 2500.
+  Training loss: 6.89
+  Training accuracy: 21.3%
+  L2 regularization: 0.0186
+  Validation loss: 14.1
+  Validation accuracy: 19.8%
+
+18:21:08 Validating gru at iteration 3000.
+  Training loss: 6.75
+  Training accuracy: 22.3%
+  L2 regularization: 0.0196
+  Validation loss: 14.9
+  Validation accuracy: 19.3%
+
+18:21:10 Saving gru at iteration 3000.
+
+18:21:15 Validating gru at iteration 3500.
+  Training loss: 6.42
+  Training accuracy: 23.0%
+  L2 regularization: 0.0203
+  Validation loss: 16.0
+  Validation accuracy: 20.3%
+
+18:21:20 Validating gru at iteration 4000.
+  Training loss: 6.26
+  Training accuracy: 23.8%
+  L2 regularization: 0.021
+  Validation loss: 16.7
+  Validation accuracy: 19.7%
+
+18:21:22 Saving gru at iteration 4000.
+
+18:21:26 Validating gru at iteration 4500.
+  Training loss: 6.1
+  Training accuracy: 23.7%
+  L2 regularization: 0.0215
+  Validation loss: 17.6
+  Validation accuracy: 20.8%
+
+18:21:32 Validating gru at iteration 5000.
+  Training loss: 6.01
+  Training accuracy: 24.3%
+  L2 regularization: 0.0219
+  Validation loss: 18.2
+  Validation accuracy: 20.2%
+
+18:21:33 Saving gru at iteration 5000.
+
+18:21:38 Validating gru at iteration 5500.
+  Training loss: 5.99
+  Training accuracy: 24.8%
+  L2 regularization: 0.0223
+  Validation loss: 19.0
+  Validation accuracy: 21.0%
+
+18:21:44 Validating gru at iteration 6000.
+  Training loss: 5.93
+  Training accuracy: 24.9%
+  L2 regularization: 0.0226
+  Validation loss: 19.4
+  Validation accuracy: 20.6%
+
+18:21:46 Saving gru at iteration 6000.
+
+18:21:51 Validating gru at iteration 6500.
+  Training loss: 5.8
+  Training accuracy: 24.9%
+  L2 regularization: 0.0229
+  Validation loss: 20.2
+  Validation accuracy: 21.3%
+
+18:21:57 Validating gru at iteration 7000.
+  Training loss: 5.79
+  Training accuracy: 25.7%
+  L2 regularization: 0.0231
+  Validation loss: 20.3
+  Validation accuracy: 20.8%
+
+18:21:58 Saving gru at iteration 7000.
+
+18:22:03 Validating gru at iteration 7500.
+  Training loss: 5.74
+  Training accuracy: 25.3%
+  L2 regularization: 0.0233
+  Validation loss: 21.1
+  Validation accuracy: 21.3%
+
+18:22:09 Validating gru at iteration 8000.
+  Training loss: 5.67
+  Training accuracy: 25.9%
+  L2 regularization: 0.0235
+  Validation loss: 21.2
+  Validation accuracy: 20.8%
+
+18:22:10 Saving gru at iteration 8000.
+
+18:22:15 Validating gru at iteration 8500.
+  Training loss: 5.68
+  Training accuracy: 25.7%
+  L2 regularization: 0.0237
+  Validation loss: 21.9
+  Validation accuracy: 21.5%
+
+18:22:21 Validating gru at iteration 9000.
+  Training loss: 5.64
+  Training accuracy: 25.8%
+  L2 regularization: 0.0239
+  Validation loss: 21.9
+  Validation accuracy: 20.9%
+
+18:22:22 Saving gru at iteration 9000.
+
+18:22:27 Validating gru at iteration 9500.
+  Training loss: 5.61
+  Training accuracy: 26.3%
+  L2 regularization: 0.0241
+  Validation loss: 22.5
+  Validation accuracy: 21.6%
+
+18:22:33 Finished training. Entering testing phase.
+  Testing loss: 23.2
+  Testing accuracy: 21.4%
+Final save of.
+Training gru ended on 14-12-2021 at 18:22:33.

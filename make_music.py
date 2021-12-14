@@ -19,7 +19,7 @@ from utils.midi import to_midi, write_song
 FLAGS = flags.FLAGS
 
 # file system
-flags.DEFINE_string('results_path', 'songs', 'Where to store new songs.')
+flags.DEFINE_string('results_path', 'cyberbach_songs', 'Where to store new songs.')
 flags.DEFINE_string('song_name', '', 'Optional song name. If empty, random song name will be generated.')
 flags.DEFINE_boolean('use_timidity', False, 'Use timidity to convert the midi file to wav. Fails if timidity is not installed.')
 

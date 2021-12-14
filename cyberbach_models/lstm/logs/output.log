@@ -1,0 +1,156 @@
+18:25:51 Validating lstm at iteration 500.
+  Training loss: 10.8
+  Training accuracy: 15.4%
+  L2 regularization: 0.00635
+  Validation loss: 10.7
+  Validation accuracy: 15.6%
+
+18:25:55 Validating lstm at iteration 1000.
+  Training loss: 10.3
+  Training accuracy: 17.0%
+  L2 regularization: 0.00884
+  Validation loss: 10.9
+  Validation accuracy: 16.4%
+
+18:25:56 Saving lstm at iteration 1000.
+
+18:26:00 Validating lstm at iteration 1500.
+  Training loss: 9.92
+  Training accuracy: 17.8%
+  L2 regularization: 0.0108
+  Validation loss: 10.7
+  Validation accuracy: 17.2%
+
+18:26:04 Validating lstm at iteration 2000.
+  Training loss: 9.66
+  Training accuracy: 18.0%
+  L2 regularization: 0.0124
+  Validation loss: 11.4
+  Validation accuracy: 17.7%
+
+18:26:05 Saving lstm at iteration 2000.
+
+18:26:09 Validating lstm at iteration 2500.
+  Training loss: 9.22
+  Training accuracy: 18.5%
+  L2 regularization: 0.0136
+  Validation loss: 11.7
+  Validation accuracy: 18.2%
+
+18:26:13 Validating lstm at iteration 3000.
+  Training loss: 8.98
+  Training accuracy: 19.1%
+  L2 regularization: 0.0147
+  Validation loss: 12.3
+  Validation accuracy: 18.2%
+
+18:26:14 Saving lstm at iteration 3000.
+
+18:26:18 Validating lstm at iteration 3500.
+  Training loss: 8.74
+  Training accuracy: 19.8%
+  L2 regularization: 0.0156
+  Validation loss: 12.8
+  Validation accuracy: 18.5%
+
+18:26:22 Validating lstm at iteration 4000.
+  Training loss: 8.62
+  Training accuracy: 20.2%
+  L2 regularization: 0.0164
+  Validation loss: 13.2
+  Validation accuracy: 18.4%
+
+18:26:23 Saving lstm at iteration 4000.
+
+18:26:26 Validating lstm at iteration 4500.
+  Training loss: 8.46
+  Training accuracy: 19.9%
+  L2 regularization: 0.017
+  Validation loss: 13.7
+  Validation accuracy: 18.6%
+
+18:26:31 Validating lstm at iteration 5000.
+  Training loss: 8.48
+  Training accuracy: 20.2%
+  L2 regularization: 0.0177
+  Validation loss: 13.9
+  Validation accuracy: 18.6%
+
+18:26:32 Saving lstm at iteration 5000.
+
+18:26:35 Validating lstm at iteration 5500.
+  Training loss: 8.22
+  Training accuracy: 20.8%
+  L2 regularization: 0.0182
+  Validation loss: 14.6
+  Validation accuracy: 18.6%
+
+18:26:39 Validating lstm at iteration 6000.
+  Training loss: 8.13
+  Training accuracy: 20.7%
+  L2 regularization: 0.0188
+  Validation loss: 14.4
+  Validation accuracy: 18.6%
+
+18:26:40 Saving lstm at iteration 6000.
+
+18:26:44 Validating lstm at iteration 6500.
+  Training loss: 8.16
+  Training accuracy: 20.6%
+  L2 regularization: 0.0192
+  Validation loss: 15.2
+  Validation accuracy: 18.7%
+
+18:26:48 Validating lstm at iteration 7000.
+  Training loss: 7.95
+  Training accuracy: 21.1%
+  L2 regularization: 0.0197
+  Validation loss: 15.1
+  Validation accuracy: 18.6%
+
+18:26:49 Saving lstm at iteration 7000.
+
+18:26:53 Validating lstm at iteration 7500.
+  Training loss: 7.86
+  Training accuracy: 21.0%
+  L2 regularization: 0.0201
+  Validation loss: 15.9
+  Validation accuracy: 18.6%
+
+18:26:57 Validating lstm at iteration 8000.
+  Training loss: 7.83
+  Training accuracy: 20.9%
+  L2 regularization: 0.0205
+  Validation loss: 15.7
+  Validation accuracy: 18.6%
+
+18:26:58 Saving lstm at iteration 8000.
+
+18:27:01 Validating lstm at iteration 8500.
+  Training loss: 7.84
+  Training accuracy: 21.2%
+  L2 regularization: 0.0208
+  Validation loss: 16.4
+  Validation accuracy: 18.7%
+
+18:27:06 Validating lstm at iteration 9000.
+  Training loss: 7.78
+  Training accuracy: 21.4%
+  L2 regularization: 0.0212
+  Validation loss: 16.3
+  Validation accuracy: 18.6%
+
+18:27:06 Saving lstm at iteration 9000.
+
+18:27:10 Validating lstm at iteration 9500.
+  Training loss: 7.65
+  Training accuracy: 21.5%
+  L2 regularization: 0.0215
+  Validation loss: 16.9
+  Validation accuracy: 18.6%
+
+18:27:14 Finished training. Entering testing phase.
+  Testing loss: 16.4
+  Testing accuracy: 19.0%
+Final save of.
+Training lstm ended on 14-12-2021 at 18:27:14.
