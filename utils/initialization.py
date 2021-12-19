@@ -40,7 +40,7 @@ def make_limit_cycle_weights(shape: torch.Size):
         # scale factor
         # at 1, the initialization will be an instance of orthogonal, which has a stable fixed point
         # by scaling up a bit we come close to bifurcating into a limit cycle
-        scale = 1 + 0.2*uni.sample()
+        scale = 1 + 0.4*uni.sample()
 
         mat = scale*torch.tensor([[np.cos(t), -np.sin(t)], [np.sin(t), np.cos(t)]])
 
