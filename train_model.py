@@ -27,7 +27,7 @@ flags.DEFINE_bool(
     'use_gpu', False, 'Whether or not to use the GPU. Fails if True and CUDA is not available.')
 flags.DEFINE_string(
     'model_name', '', 'If non-empty works as a special name for this model.')
-flags.DEFINE_string('results_path', 'cyberbach_models',
+flags.DEFINE_string('results_path', 'models',
                     'Name of the directory to save all results within.')
 flags.DEFINE_integer(
     'random_seed', -1, 'If not -1, set the random seed to this value. Otherwise the random seed will be the current microsecond.')

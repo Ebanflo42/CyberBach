@@ -18,6 +18,12 @@ conda env create -f environment.yml
 pip install https://github.com/IGITUGraz/SimManager/archive/v0.8.3.zip
 ```
 
+Create new directories for storing models and songs:
+
+```
+mkdir models songs
+```
+
 To create a new song from the pre-trained limit cycle GRU with input from the Nottingham dataset, run:
 
 ```
