@@ -28,19 +28,19 @@ def make_limit_cycle_weights(shape: torch.Size):
     result = torch.zeros(shape)
 
     bern = Bernoulli(torch.tensor([0.5]))
-    uni = Uniform(0.2*np.pi, 0.4*np.pi)
+    uni = Uniform(0, 1)
 
     for i in range(n):
 
         # rotation angle
-        t = uni.sample()
+        t = 0.2 + uni.sample()
         if bern.sample == 1:
             t = -t
 
         # scale factor
         # at 1, the initialization will be an instance of orthogonal, which has a stable fixed point
         # by scaling up a bit we come close to bifurcating into a limit cycle
-        scale = 1 + 0.2*uni.sample()
+        scale = 1 + 0.1*uni.sample()
 
         mat = scale*torch.tensor([[np.cos(t), -np.sin(t)], [np.sin(t), np.cos(t)]])
 

@@ -29,7 +29,7 @@ flags.DEFINE_enum('subset', 'train', ['train', 'valid', 'test'], 'Which subset t
 flags.DEFINE_integer('index', 0, 'Index of the input song in the dataset.')
 
 # song synthesis
-flags.DEFINE_string('model_path', 'cyberbach_models/gru', 'Which model to restore to use to synthesize song. If empty, output will be the original song')
+flags.DEFINE_string('model_path', '', 'Which model to restore to use to synthesize song. If empty, output will be the original song')
 flags.DEFINE_integer('length', 200, 'How many beats the song should last.')
 flags.DEFINE_integer('max_on_notes', 10, 'Maximum number of notes to be played during a beat.')
 flags.DEFINE_integer('min_on_notes', 0, 'Minimum number of notes to be played during a beat.')

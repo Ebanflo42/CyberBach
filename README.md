@@ -2,7 +2,7 @@
 
 Training machines to make music!
 
-Complete with 5 pre-trained models and 20 whacky pre-generated tunes!
+Complete with 5 pre-trained models and 20 whacky pre-generated tunes! Read about it in detail in [my blog post](https://ebanflo42.github.io/resources/docs/blog/cyberbach.html).
 
 ## Usage
 
