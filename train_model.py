@@ -215,7 +215,7 @@ def train_loop(sm, FLAGS, model, train_iter, valid_iter, test_iter):
     print(
         f'  Testing loss: {final_test_loss:.3}\n  Testing accuracy: {100*final_test_acc:.3}%')
 
-    print(f'Final save of.')
+    print(f'Final save of {sm.sim_name}.')
     np.save(opj(sm.paths.results_path, 'testing_loss'), final_test_loss)
     np.save(opj(sm.paths.results_path, 'testing_accuracy'), final_test_acc)
     torch.save(model.state_dict(), opj(
